@@ -13,7 +13,8 @@ import {
 } from '../utils/constants'
 import gsap from 'gsap'
 import ControllerManager from '../managers/ControllerManager'
-import { degToRad, lerp } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad, lerp } = MathUtils
 import Settings from '../utils/Settings'
 import CinematicManager from '../managers/CinematicManager'
 

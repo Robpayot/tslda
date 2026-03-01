@@ -1,5 +1,6 @@
 import { Color, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, RepeatWrapping, ShaderMaterial } from 'three'
-import { degToRad } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad } = MathUtils
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
 

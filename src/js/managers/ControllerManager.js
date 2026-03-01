@@ -1,7 +1,8 @@
 import { Vector2 } from 'three'
 import { isTouch } from '../utils/isTouch'
 import { gsap } from 'gsap'
-import { clamp, degToRad, lerp, radToDeg, randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { clamp, degToRad, lerp, radToDeg, randInt } = MathUtils
 import ModeManager from './ModeManager'
 import GameManager from './GameManager'
 import {

@@ -1,5 +1,6 @@
 import { Object3D, ShaderMaterial } from 'three'
-import { clamp, degToRad, lerp } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { clamp, degToRad, lerp } = MathUtils
 import ControllerManager from '../../managers/ControllerManager'
 import UIManager from '../../managers/UIManager'
 import { gsap } from 'gsap'

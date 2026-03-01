@@ -139,7 +139,9 @@ export default class WebGLApp {
     // precompile textures
     const textures = LoaderManager.textures
     textures.forEach((texture) => {
-      this.#renderer.instance.initTexture(texture)
+      if (this.#renderer.instance.initTexture) {
+        this.#renderer.instance.initTexture(texture)
+      }
     })
   }
 

@@ -3,7 +3,8 @@ import { Vector2 } from 'three'
 import Debugger from '@/js/managers/Debugger'
 
 import ControllerManager from './ControllerManager'
-import { clamp, degToRad } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { clamp, degToRad } = MathUtils
 import ModeManager from './ModeManager'
 import GameManager from './GameManager'
 import { MODE } from '../utils/constants'

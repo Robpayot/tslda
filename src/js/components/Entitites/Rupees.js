@@ -7,7 +7,8 @@ import LoaderManager from '../../managers/LoaderManager'
 // Toon Shaders
 import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
 import fragmentRupeeShader from '@glsl/game/rupee.frag'
-import { randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randInt } = MathUtils
 
 import DATA_RUPEES from '../../data/rupees_score.json'
 import { MODE } from '../../utils/constants'

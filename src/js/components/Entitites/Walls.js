@@ -6,7 +6,8 @@ import LoaderManager from '../../managers/LoaderManager'
 // Toon Shaders
 import vertexShader from '@glsl/game/wall.vert'
 import fragmentShader from '@glsl/game/barrel.frag'
-import { degToRad } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad } = MathUtils
 import gsap from 'gsap'
 
 const offsetZ = 258

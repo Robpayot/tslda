@@ -24,7 +24,8 @@ import {
   TRIFORCE_FOUND,
 } from '../../utils/constants'
 import Settings from '../../utils/Settings'
-import { degToRad } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad } = MathUtils
 import SoundManager, { SOUNDS_CONST } from '../../managers/SoundManager'
 import { GLOBALS } from '../../utils/globals'
 

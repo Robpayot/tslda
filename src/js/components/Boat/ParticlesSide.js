@@ -2,7 +2,8 @@ import { BufferAttribute, Points, PointsMaterial } from 'three'
 import vertexShader from '@glsl/boat/particlesSide.vert'
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
 import LoaderManager from '../../managers/LoaderManager'
-import { randFloat } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randFloat } = MathUtils
 import ControllerManager from '../../managers/ControllerManager'
 import EnvManager from '../../managers/EnvManager'
 

@@ -6,7 +6,8 @@ import LoaderManager from '../../managers/LoaderManager'
 // Toon Shaders
 import vertexToonShader from '@glsl/partials/toonWorld.vert'
 import fragmentBarrelShader from '@glsl/game/barrel.frag'
-import { randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
 export default class Mirador {

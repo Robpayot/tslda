@@ -6,7 +6,8 @@ import LoaderManager from '../../managers/LoaderManager'
 import vertexToonShader from '@glsl/partials/toonWorld.vert'
 import fragmentIslandShader from '@glsl/game/islands.frag'
 import { SCALE_OCEAN } from '../Ocean'
-import { degToRad } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad } = MathUtils
 
 import Debugger from '@/js/managers/Debugger'
 

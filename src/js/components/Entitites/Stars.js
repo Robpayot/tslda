@@ -4,8 +4,8 @@ import { BufferGeometry } from 'three'
 
 import vertexShader from '@glsl/stars/stars.vert'
 import fragmentShader from '@glsl/stars/stars.frag'
-import { degToRad } from 'three/src/math/MathUtils'
-import { randFloat } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad, randFloat } = MathUtils
 import EnvManager from '../../managers/EnvManager'
 
 const NB_POINTS = 1000

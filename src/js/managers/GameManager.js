@@ -1,4 +1,5 @@
-import { randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randInt } = MathUtils
 import GridManager from './GridManager'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../components/Ocean'
 import { MeshBasicMaterial, Object3D } from 'three'

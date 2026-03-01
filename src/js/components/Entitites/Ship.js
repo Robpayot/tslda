@@ -7,7 +7,8 @@ import LoaderManager from '../../managers/LoaderManager'
 // Toon Shaders
 import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
 import fragmentShader from '@glsl/game/barrel.frag'
-import { degToRad, randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { degToRad, randInt } = MathUtils
 
 export default class Ship {
   #avail = []

@@ -4,9 +4,9 @@ import { BufferGeometry } from 'three'
 
 import vertexShader from '@glsl/ocean/waves.vert'
 import fragmentShader from '@glsl/ocean/waves.frag'
-import { randFloatSpread } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randFloatSpread, randFloat } = MathUtils
 import LoaderManager from '../../managers/LoaderManager'
-import { randFloat } from 'three/src/math/MathUtils'
 import { gsap } from 'gsap'
 import GridManager from '../../managers/GridManager'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'

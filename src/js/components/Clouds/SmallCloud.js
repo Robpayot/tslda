@@ -1,6 +1,7 @@
 import { gsap } from 'gsap'
 import { Color, Mesh, Object3D, PlaneGeometry, Vector3 } from 'three'
-import { randFloat } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randFloat } = MathUtils
 
 const GEOMETRY = new PlaneGeometry(50, 50)
 

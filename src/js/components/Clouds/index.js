@@ -6,7 +6,8 @@ import fragmentShaderLongBack from '@glsl/clouds/longback.frag'
 import fragmentShaderSmall from '@glsl/clouds/small.frag'
 import LongCloud from './LongCloud'
 import LoaderManager from '../../managers/LoaderManager'
-import { randFloat, randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randFloat, randInt } = MathUtils
 import SmallCloud from './SmallCloud'
 import EnvManager from '../../managers/EnvManager'
 

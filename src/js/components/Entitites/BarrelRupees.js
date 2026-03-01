@@ -2,7 +2,8 @@ import { Object3D } from 'three'
 import { REPEAT_OCEAN } from '../Ocean'
 
 // Toon Shaders
-import { randInt } from 'three/src/math/MathUtils'
+import { MathUtils } from 'three'
+const { randInt } = MathUtils
 import DATA_RUPEES from '../../data/rupees_score.json'
 import { MODE } from '../../utils/constants'
 export default class BarrelRupees {

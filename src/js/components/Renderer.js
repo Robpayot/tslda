@@ -6,10 +6,8 @@ import {
   LinearToneMapping,
   NoToneMapping,
   ReinhardToneMapping,
-  WebGL1Renderer,
   WebGLRenderer,
 } from 'three'
-import WebGL from 'three/addons/capabilities/WebGL.js'
 
 // Configs
 // import globalConfig from '@/js/webgl/configs/global'
@@ -58,8 +56,7 @@ export default class Renderer {
    * Private
    */
   _createRenderer() {
-    const RendererClass = WebGL.isWebGL2Available() ? WebGLRenderer : WebGL1Renderer
-    const renderer = new RendererClass({
+    const renderer = new WebGLRenderer({
       canvas: this.#canvas,
       antialias: Settings.antialias,
       powerPreference: 'high-performance',
