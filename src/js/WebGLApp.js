@@ -231,9 +231,9 @@ export default class WebGLApp {
     }
 
     // render Target for Shadow Map
-    if (view.components.ocean.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
+    if (view.components?.ocean?.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
       view.components.ocean.mesh.material = EnvManager.shadowMaterial
-      for (let i = 0; i < view.meshShadows.length; i++) {
+      for (let i = 0; i < view.meshShadows?.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].shadowMaterial
       }
 
