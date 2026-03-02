@@ -5,7 +5,7 @@ import * as path from 'path'
 export default ({ mode }) => {
   return defineConfig({
     root: 'src',
-    base: mode === 'development' ? '/zelda-project/' : './', // for Github pages, otherwise use './'
+    base: mode === 'development' ? '/zelda-tsl/' : './', // for Github pages, otherwise use './'
     build: {
       outDir: '../dist',
       sourcemap: true,
