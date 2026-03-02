@@ -156,7 +156,7 @@ export default class MainView {
     // TSL migration: all components disabled — re-enable one by one after conversion
     // components.boat = this._createBoatComponent()
     // components.link = this._createLinkComponent()
-    // components.ocean = this._createOceanComponent()
+    components.ocean = this._createOceanComponent()
     // components.clouds = this._createCloudsComponent()
     // components.horizon = this._createHorizonComponent()
 
@@ -235,7 +235,6 @@ export default class MainView {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     this._updateComponents({ time, delta })
     this.#cameraManager.update({ time, delta })
 
