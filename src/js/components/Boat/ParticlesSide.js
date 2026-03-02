@@ -84,6 +84,7 @@ export default class ParticlesSide {
   }
 
   update({ time, delta, turnForce, velocity }) {
+    return // TSL migration: scene cleared
     this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.uSpeed
     this.#material.opacity = Math.min(
       2 * turnForce + velocity,

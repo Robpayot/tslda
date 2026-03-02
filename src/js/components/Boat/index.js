@@ -373,6 +373,7 @@ export default class Boat {
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     this.#object.rotation.y = this.#initRotaY + ControllerManager.boat.angleDir
 
     this.#mesh.rotation.z =

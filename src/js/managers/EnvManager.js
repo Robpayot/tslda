@@ -158,6 +158,7 @@ class EnvManager {
   }
 
   updateSettings(mode) {
+    return
     this.tl?.kill()
     if (mode === MODE.EXPLORE) {
       this.#settingsOcean = { ...DATA_ENV.explore[this.#index].ocean }
@@ -171,6 +172,7 @@ class EnvManager {
   }
 
   anim(first) {
+    return
     if (first) {
       this.#index = 3
     }
@@ -219,6 +221,7 @@ class EnvManager {
   }
 
   updateEnv(index, nextIndex, mode) {
+    return
     // return
     let current = DATA_ENV.explore[index]
     let next = DATA_ENV.explore[nextIndex]

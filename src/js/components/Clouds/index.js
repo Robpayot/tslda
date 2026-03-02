@@ -273,6 +273,7 @@ export default class Clouds extends Object3D {
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     for (let i = 0; i < this.#clouds.length; i++) {
       const cloud = this.#clouds[i]
       cloud.update({ time, delta })

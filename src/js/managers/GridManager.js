@@ -28,13 +28,14 @@ class GridManager {
   }
 
   init(scene) {
-    // this._createDebugFolder()
+    this._createDebugFolder()
   }
 
   /**
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     if (ModeManager.state === MODE.GAME_STARTED && GameManager.paused) {
       return
     }

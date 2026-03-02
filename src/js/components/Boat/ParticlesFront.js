@@ -101,7 +101,7 @@ export default class ParticlesFront {
   }
 
   update({ time, delta, velocity }) {
-    // Jump
+    return // TSL migration: scene cleared
     if (ControllerManager.boat.up > 0) {
       this.#mesh.position.z -= ControllerManager.boat.velocity * ControllerManager.boat.speedTextureOffset
       if (!this.startJump) {

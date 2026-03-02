@@ -54,29 +54,29 @@ export default class MainView {
     EnvManager.init(this.#scene)
     this.#components = this._createComponents()
 
-    GridManager.init(this.#scene)
-    GameManager.init(this.#scene)
-    ExploreManager.init(this.#scene, this.camera)
-    EnvManager.setOceanExtend(this.#components.ocean.meshExtend)
-    EnvManager.setToonMaterials()
+    // TSL migration: managers disabled — re-enable after conversion
+    // GridManager.init(this.#scene)
+    // GameManager.init(this.#scene)
+    // ExploreManager.init(this.#scene, this.camera)
+    // EnvManager.setOceanExtend(this.#components.ocean?.meshExtend)
+    // EnvManager.setToonMaterials()
     ModeManager.addCamera(this.#cameraManager)
 
-    // Init Boat treasures
-    this.#components.boat.initTreasures()
+    // TSL migration: disabled — re-enable after conversion
+    // this.#components.boat?.initTreasures()
 
-    // set up shadowmap on meshes
-    this.#scene.traverse((object) => {
-      if (object?.castCustomShadow === true) {
-        object.mainMaterial = object.material
-        object.shadowMaterial =
-          object.type === 'SkinnedMesh' ? EnvManager.shadowSkinMaterial : EnvManager.shadowMaterial
-        this.#meshShadows.push(object)
-      }
-
-      if (object?.receiveCustomShadow === true) {
-        this.#meshReceiveShadows.push(object)
-      }
-    })
+    // set up shadowmap on meshes (skipped while scene is empty)
+    // this.#scene.traverse((object) => {
+    //   if (object?.castCustomShadow === true) {
+    //     object.mainMaterial = object.material
+    //     object.shadowMaterial =
+    //       object.type === 'SkinnedMesh' ? EnvManager.shadowSkinMaterial : EnvManager.shadowMaterial
+    //     this.#meshShadows.push(object)
+    //   }
+    //   if (object?.receiveCustomShadow === true) {
+    //     this.#meshReceiveShadows.push(object)
+    //   }
+    // })
 
       // this.#scene.background = this.#skyTexture.renderTarget.texture
     // TODO: replace with classic background
@@ -153,12 +153,12 @@ export default class MainView {
    */
   _createComponents() {
     const components = {}
-    // this.#scene.add(ResourceLoader.get('watercolor/scene').scene)
-    components.boat = this._createBoatComponent()
-    components.link = this._createLinkComponent()
-    components.ocean = this._createOceanComponent()
-    components.clouds = this._createCloudsComponent()
-    components.horizon = this._createHorizonComponent()
+    // TSL migration: all components disabled — re-enable one by one after conversion
+    // components.boat = this._createBoatComponent()
+    // components.link = this._createLinkComponent()
+    // components.ocean = this._createOceanComponent()
+    // components.clouds = this._createCloudsComponent()
+    // components.horizon = this._createHorizonComponent()
 
     return components
   }
@@ -235,6 +235,7 @@ export default class MainView {
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     this._updateComponents({ time, delta })
     this.#cameraManager.update({ time, delta })
 

@@ -161,7 +161,7 @@ export default class Ocean extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    // update heightmap and Env
+    return // TSL migration: scene cleared
     const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
 
     OceanHeightMap.material.uniforms.timeWave.value = this.#material.uniforms.timeWave.value

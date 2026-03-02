@@ -108,6 +108,7 @@ export default class CameraManager {
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     if (!this.#isEnabled) return
 
     this.#cameras.forEach((camera) => {

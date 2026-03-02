@@ -61,6 +61,7 @@ export default class Sail {
   }
 
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     this.#mesh.material.uniforms.uTime.value += (delta / 16) * (0.01 + ControllerManager.boat.velocityP * 0.025)
     this.#mesh.material.uniforms.uVelocity.value = ControllerManager.boat.velocityP
   }

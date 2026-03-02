@@ -243,6 +243,7 @@ export default class Crane {
   }
 
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     if (!this.stopAction) {
       this.#mixer?.update(0.055)
       this.#mixerRotate?.update(0.055)

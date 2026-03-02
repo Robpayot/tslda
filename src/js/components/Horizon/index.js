@@ -18,6 +18,8 @@ export default class Horizon extends Object3D {
   constructor({ debug }) {
     super()
 
+    return
+
     this.#debug = debug
 
     this._createMaterial()
@@ -71,6 +73,7 @@ export default class Horizon extends Object3D {
    * Update
    */
   update({ time, delta }) {
+    return
     // this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.speedTex
 
     this.#material.uniforms.color1.value = new Color(EnvManager.settings.sky)

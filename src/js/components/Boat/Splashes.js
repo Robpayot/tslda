@@ -82,7 +82,7 @@ export default class Splashes {
   }
 
   update({ time, delta }) {
-    // Env
+    return // TSL migration: scene cleared
     const { color, foam } = EnvManager.settingsOcean
     this.material.uniforms.uColor.value = new Color(color)
     this.material.uniforms.alphaTex.value = foam

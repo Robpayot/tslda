@@ -133,6 +133,7 @@ class GameManager {
   }
 
   init(scene) {
+    return // TSL migration: scene cleared
     this.#parent = new Object3D()
     scene.add(this.#parent)
 
@@ -712,6 +713,7 @@ class GameManager {
    * Update
    */
   update({ time, delta }) {
+    return // TSL migration: scene cleared
     if (this.paused) return
     // GAME
     // console.log(GridManager.offsetUV)

@@ -602,7 +602,7 @@ export default class Link {
    * Update
    */
   update({ time, delta }) {
-    // stance animation
+    return // TSL migration: scene cleared
     this.#mixer?.update(0.07)
     this.#mixerShield?.update(0.07)
     this.#mixerMaster?.update(0.07)
