@@ -134,6 +134,8 @@ class ExploreManager {
   }
 
   init(scene, camera) {
+
+    return
     this.camera = camera
     this.#parent = new Object3D()
     // scene.add(this.#parent)
@@ -191,6 +193,7 @@ class ExploreManager {
   }
 
   start = () => {
+    return
     this.#parent.visible = true
 
     for (let i = 0; i < NB_WINDS; i++) {
@@ -546,6 +549,7 @@ class ExploreManager {
   }
 
   update({ time, delta }) {
+    return
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
