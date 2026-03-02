@@ -1,14 +1,17 @@
-import { Color, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, RepeatWrapping, ShaderMaterial } from 'three'
+import { Color, Mesh, MeshBasicMaterial, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping, ShaderMaterial } from 'three'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
+import {
+  Fn, uniform, varying,
+  float, vec2, vec3, vec4,
+  uv, positionLocal, modelViewMatrix,
+  distance, step, exp, mix,
+} from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
 
 import vertexShader from '@glsl/ocean/main.vert'
 import fragmentShader from '@glsl/ocean/main.frag'
-// extend shader
-import vertexExtendShader from '@glsl/ocean/extend.vert'
-import fragmentExtendShader from '@glsl/ocean/extend.frag'
 import { gsap } from 'gsap'
 import EnvManager from '../../managers/EnvManager'
 import GridManager from '../../managers/GridManager'
@@ -46,30 +49,22 @@ export default class Ocean extends Object3D {
 
     this.#debug = debug
 
-    this._createMaterial()
-    this.#mesh = this._createMesh()
+    // this._createMaterial()
+    // this.#mesh = this._createMesh()
 
     this._createDebugFolder()
 
-    OceanHeightMap.init(scene)
+    // OceanHeightMap.init(scene)
 
-    // extend  new Color(this.#settings.color)
-    const mat = new ShaderMaterial({
-      vertexShader: vertexExtendShader,
-      fragmentShader: fragmentExtendShader,
-      uniforms: {
-        color: { value: new Color(this.#settings.color) },
-        fogColor: {
-          value: new Color(this.#settings.fogColor),
-        },
-        fogDensity: {
-          value: this.#settings.fogDensity,
-        },
-      },
-    })
+    // extend
+    this.uExtColor = uniform(new Color(this.#settings.color))
+    this.uExtFogColor = uniform(new Color(this.#settings.fogColor))
+    this.uExtFogDensity = uniform(this.#settings.fogDensity)
+
+    const extMat = this._createExtendMaterial()
     const geo = new PlaneGeometry(SCALE_OCEAN * 3.5, SCALE_OCEAN * 3.5, 1, 1)
 
-    const meshT = new Mesh(geo, mat)
+    const meshT = new Mesh(geo, extMat)
     meshT.position.y = 0
     meshT.rotateX(degToRad(-90))
     scene.add(meshT)
@@ -157,16 +152,48 @@ export default class Ocean extends Object3D {
     return mesh
   }
 
+  _createExtendMaterial() {
+    const { uExtColor, uExtFogColor, uExtFogDensity } = this
+
+    const vExtFogDepth = varying(float(0), 'vExtFogD')
+
+    const positionFn = Fn(() => {
+      const pos = positionLocal.toVar()
+      const mvPos = modelViewMatrix.mul(vec4(pos, 1.0))
+      vExtFogDepth.assign(mvPos.z.negate())
+      return pos
+    })
+
+    const fragmentFn = Fn(() => {
+      const vUv = uv()
+      const circle = distance(vUv, vec2(0.5))
+      const alpha = step(0.12, circle)
+
+      const col = vec3(uExtColor).toVar()
+      const fogFactor = float(1).sub(exp(uExtFogDensity.negate().mul(uExtFogDensity).mul(vExtFogDepth).mul(vExtFogDepth)))
+      col.assign(mix(col, vec3(uExtFogColor), fogFactor))
+
+      return vec4(col, alpha)
+    })
+
+    const mat = new NodeMaterial()
+    mat.positionNode = positionFn()
+    mat.fragmentNode = fragmentFn()
+    mat.transparent = true
+    return mat
+  }
+
   /**
    * Update
    */
   update({ time, delta }) {
+    return
     const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
 
-    OceanHeightMap.material.uniforms.timeWave.value = this.#material.uniforms.timeWave.value
-    OceanHeightMap.material.uniforms.dirTex.value = this.#material.uniforms.dirTex.value = GridManager.offsetUV
-    OceanHeightMap.material.uniforms.yScale.value = this.#material.uniforms.yScale.value = yScale
-    OceanHeightMap.material.uniforms.yStrength.value = this.#material.uniforms.yStrength.value = yStrength
+    // OceanHeightMap.material.uniforms.timeWave.value = this.#material.uniforms.timeWave.value
+    // OceanHeightMap.material.uniforms.dirTex.value = this.#material.uniforms.dirTex.value = GridManager.offsetUV
+    // OceanHeightMap.material.uniforms.yScale.value = this.#material.uniforms.yScale.value = yScale
+    // OceanHeightMap.material.uniforms.yStrength.value = this.#material.uniforms.yStrength.value = yStrength
     // Env
     this.#material.uniforms.color.value = new Color(color)
     this.meshExtend.material.uniforms.color.value = new Color(color)
@@ -250,10 +277,12 @@ export default class Ocean extends Object3D {
     if (!this.#debug) return
 
     const settingsChangedHandler = () => {
-      this.#material.uniforms.fogDensity.value = this.#settings.fogDensity
-      this.#material.uniforms.fogColor.value = new Color(this.#settings.fogColor)
-      this.meshExtend.material.uniforms.fogDensity.value = this.#settings.fogDensity
-      this.meshExtend.material.uniforms.fogColor.value = new Color(this.#settings.fogColor)
+      if (this.#material?.uniforms) {
+        this.#material.uniforms.fogDensity.value = this.#settings.fogDensity
+        this.#material.uniforms.fogColor.value = new Color(this.#settings.fogColor)
+      }
+      this.uExtFogDensity.value = this.#settings.fogDensity
+      this.uExtFogColor.value = new Color(this.#settings.fogColor)
     }
 
     const debug = this.#debug.addFolder({ title: 'Ocean', expanded: true })
