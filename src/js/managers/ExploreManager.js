@@ -136,7 +136,7 @@ class ExploreManager {
   init(scene, camera) {
     this.camera = camera
     this.#parent = new Object3D()
-    scene.add(this.#parent)
+    // scene.add(this.#parent)
 
     // environement
     this.#winds = []
