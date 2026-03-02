@@ -3,16 +3,16 @@ import {
   Color,
   DirectionalLight,
   NearestFilter,
+  NodeMaterial,
   OrthographicCamera,
   RGBAFormat,
-  ShaderMaterial,
   Vector3,
   WebGLRenderTarget,
 } from 'three'
-// Modules
+import { Fn, vec4, positionLocal, cameraProjectionMatrix, cameraViewMatrix, modelWorldMatrix } from 'three/tsl'
 import Debugger from '@/js/managers/Debugger'
-import vertexShadowmapShader from '@glsl/shadows/shadowmap.vert'
-import fragmentShadowmapShader from '@glsl/shadows/shadowmap.frag'
+import { packDepthToRGBA } from '@/js/tsl/nodes'
+import { uSunDirPos, uAmbientColor, uCoefShadow, uSRGBSpace, uShadowDepthMap, uShadowCameraP, uShadowCameraV } from '@/js/tsl/sharedUniforms'
 import DATA_ENV from '../data/env.json'
 import { MODE } from '../utils/constants'
 import { hexToRgb } from '../utils/three'
@@ -20,6 +20,20 @@ import { gsap } from 'gsap'
 import Settings from '../utils/Settings'
 
 const MAX_SHADOW_CAMERA = 300
+
+function createShadowMaterial() {
+  const mat = new NodeMaterial()
+
+  const fragmentFn = Fn(() => {
+    const worldPos = modelWorldMatrix.mul(vec4(positionLocal, 1.0))
+    const clipPos = cameraProjectionMatrix.mul(cameraViewMatrix).mul(worldPos)
+    const ndcDepth = clipPos.z.div(clipPos.w).mul(0.5).add(0.5)
+    return packDepthToRGBA(ndcDepth)
+  })
+
+  mat.fragmentNode = fragmentFn()
+  return mat
+}
 
 class EnvManager {
   #sunDir
@@ -32,7 +46,7 @@ class EnvManager {
   #index = 0
   #settings = {
     castShadows: DATA_ENV.explore[this.#index].castShadows,
-    sunDir: new Vector3(DATA_ENV.explore[this.#index].sunDirX, DATA_ENV.explore[this.#index].sunDirY, 0), // Aube : -10,3, 0
+    sunDir: new Vector3(DATA_ENV.explore[this.#index].sunDirX, DATA_ENV.explore[this.#index].sunDirY, 0),
     ambientLight: DATA_ENV.explore[this.#index].ambientLight,
     coefShadow: DATA_ENV.explore[this.#index].coefShadow,
     sky: DATA_ENV.explore[this.#index].sky,
@@ -42,8 +56,6 @@ class EnvManager {
   }
   #settingsOcean = { ...DATA_ENV.explore[this.#index].ocean }
   progress = 0
-  #toonMaterials = []
-  #fog
   constructor() {
     this.compassElBkg = document.body.querySelector('[data-compass-bkg]')
   }
@@ -85,7 +97,6 @@ class EnvManager {
 
   _createSunShadowMap(scene) {
     const frustumSize = 50
-    // create Ortho camera for custom shadow map
 
     this.#sunDir.shadow.camera = new OrthographicCamera(
       -frustumSize / 2,
@@ -96,11 +107,9 @@ class EnvManager {
       MAX_SHADOW_CAMERA
     )
 
-    // Same position as LIGHT position.
     this.#sunDir.shadow.camera.position.copy(this.#sunDir.position)
     this.#sunDir.shadow.camera.lookAt(new Vector3(0, 0, 0))
 
-    // Create the depthTexture
     this.#sunDir.shadow.mapSize.x = Settings.textureSize / 2
     this.#sunDir.shadow.mapSize.y = Settings.textureSize / 2
 
@@ -112,20 +121,10 @@ class EnvManager {
 
     this.#sunDir.shadow.map = new WebGLRenderTarget(this.#sunDir.shadow.mapSize.x, this.#sunDir.shadow.mapSize.y, pars)
 
-    this.#shadowMaterial = new ShaderMaterial({
-      vertexShader: vertexShadowmapShader,
-      fragmentShader: fragmentShadowmapShader,
-    })
+    this.#shadowMaterial = createShadowMaterial()
+    this.#shadowSkinMaterial = createShadowMaterial()
 
-    this.#shadowSkinMaterial = new ShaderMaterial({
-      vertexShader: vertexShadowmapShader,
-      fragmentShader: fragmentShadowmapShader,
-      defines: {
-        USE_BONES: true,
-      },
-    })
-
-    scene.add(this.#sunDir.shadow.camera) // add camera for shadowmap
+    scene.add(this.#sunDir.shadow.camera)
 
     return this.#sunDir.shadow
   }
@@ -135,22 +134,14 @@ class EnvManager {
     this.#sunDir = this._createSunLight()
     this.#ambientLight = new AmbientLight(this.#settings.ambientLight)
 
-    // this.#scene.add(this.#ambientLight)
     this.#sunShadowMap = this._createSunShadowMap(scene)
     this._createDebugFolder()
 
     this.#scene.background = new Color(this.#settings.sky)
-  }
 
-  setToonMaterials() {
-    this.#scene.traverse((object) => {
-      if (object?.material?.name === 'toon') {
-        this.#toonMaterials.push(object.material)
-      }
-    })
-
-    // remove duplicates
-    this.#toonMaterials = this.#toonMaterials.filter((item, index) => this.#toonMaterials.indexOf(item) === index)
+    uSunDirPos.value.copy(this.#sunDir.position)
+    uAmbientColor.value.set(this.#settings.ambientLight)
+    uCoefShadow.value = this.#settings.coefShadow
   }
 
   setOceanExtend(oceanExtend) {
@@ -178,12 +169,10 @@ class EnvManager {
     this.tl = new gsap.timeline()
     const nextIndex = this.#index === 3 ? 0 : this.#index + 1
     const durTransi = 5
-    const durStay = 25 // 25
+    const durStay = 25
     this.tl.fromTo(
       this,
-      {
-        progress: 0,
-      },
+      { progress: 0 },
       {
         progress: 1,
         duration: durTransi,
@@ -219,7 +208,6 @@ class EnvManager {
   }
 
   updateEnv(index, nextIndex, mode) {
-    // return
     let current = DATA_ENV.explore[index]
     let next = DATA_ENV.explore[nextIndex]
 
@@ -228,32 +216,25 @@ class EnvManager {
       next = DATA_ENV.game
     }
 
-    // light + sky
     const currentSky = hexToRgb(current.sky)
     const nextSky = hexToRgb(next.sky)
-    //
     if (currentSky) {
       const color = `rgb(${Math.round(currentSky.r + this.progress * (nextSky.r - currentSky.r))}, ${Math.round(
         currentSky.g + this.progress * (nextSky.g - currentSky.g)
       )}, ${Math.round(currentSky.b + this.progress * (nextSky.b - currentSky.b))})`
-
       this.#settings.sky = color
     }
     this.#scene.background = new Color(this.#settings.sky)
 
     const currentSky2 = hexToRgb(current.sky2)
     const nextSky2 = hexToRgb(next.sky2)
-    //
     if (currentSky2) {
       const color = `rgb(${Math.round(currentSky2.r + this.progress * (nextSky2.r - currentSky2.r))}, ${Math.round(
         currentSky2.g + this.progress * (nextSky2.g - currentSky2.g)
       )}, ${Math.round(currentSky2.b + this.progress * (nextSky2.b - currentSky2.b))})`
-      // console.log('update sky 2', color)
-
       this.#settings.sky2 = color
     }
 
-    // update Lights and toon
     this.#settings.coefShadow = current.coefShadow + this.progress * (next.coefShadow - current.coefShadow)
 
     const currentAmbient = hexToRgb(current.ambientLight)
@@ -265,11 +246,9 @@ class EnvManager {
       )}, ${Math.round(currentAmbient.g + this.progress * (nextAmbient.g - currentAmbient.g))}, ${Math.round(
         currentAmbient.b + this.progress * (nextAmbient.b - currentAmbient.b)
       )})`
-
       this.#settings.ambientLight = color
     }
 
-    // sun Dir
     this.#settings.castShadows = next.castShadows
 
     if (this.#settings.castShadows) {
@@ -281,12 +260,9 @@ class EnvManager {
     this.#sunDir.shadow.camera.position.copy(this.#settings.sunDir)
     this.#sunDir.shadow.camera.lookAt(new Vector3(0, 0, 0))
 
-    // stars
     this.#settings.alphaStars = current.alphaStars + this.progress * (next.alphaStars - current.alphaStars)
-    // clouds
     this.#settings.alphaClouds = current.alphaClouds + this.progress * (next.alphaClouds - current.alphaClouds)
 
-    // ocean
     this.#settingsOcean.foam = current.ocean.foam + this.progress * (next.ocean.foam - current.ocean.foam)
     this.#settingsOcean.yScale = current.ocean.yScale + this.progress * (next.ocean.yScale - current.ocean.yScale)
     if (!this.forcedYStrength) {
@@ -303,7 +279,6 @@ class EnvManager {
       current.ocean.alphaWaves + this.progress * (next.ocean.alphaWaves - current.ocean.alphaWaves)
     this.#settingsOcean.alphaLightnings =
       current.ocean.alphaLightnings + this.progress * (next.ocean.alphaLightnings - current.ocean.alphaLightnings)
-    // console.log(this.progress, this.#settingsOcean.repeat)
     const currentColor = hexToRgb(current.ocean.color)
     const nextColor = hexToRgb(next.ocean.color)
 
@@ -311,7 +286,6 @@ class EnvManager {
       const color = `rgb(${Math.round(currentColor.r + this.progress * (nextColor.r - currentColor.r))}, ${Math.round(
         currentColor.g + this.progress * (nextColor.g - currentColor.g)
       )}, ${Math.round(currentColor.b + this.progress * (nextColor.b - currentColor.b))})`
-
       this.#settingsOcean.color = color
     }
 
@@ -324,20 +298,18 @@ class EnvManager {
       )}, ${Math.round(currentFogColor.g + this.progress * (nextFogColor.g - currentFogColor.g))}, ${Math.round(
         currentFogColor.b + this.progress * (nextFogColor.b - currentFogColor.b)
       )})`
-
       this.#settingsOcean.fogColor = color
     }
 
     this.#settingsOcean.fogDensity =
       current.ocean.fogDensity + this.progress * (next.ocean.fogDensity - current.ocean.fogDensity)
 
-    for (let i = 0; i < this.#toonMaterials.length; i++) {
-      const material = this.#toonMaterials[i]
-      material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
-      if (material.uniforms.coefShadow) {
-        material.uniforms.coefShadow.value = this.#settings.coefShadow
-      }
-    }
+    // Update shared TSL uniforms
+    uAmbientColor.value = new Color(this.#settings.ambientLight)
+    uCoefShadow.value = this.#settings.coefShadow
+    uSunDirPos.value.copy(this.#settings.sunDir)
+    uShadowCameraP.value.copy(this.#sunDir.shadow.camera.projectionMatrix)
+    uShadowCameraV.value.copy(this.#sunDir.shadow.camera.matrixWorldInverse)
   }
 
   forceYStrength() {
@@ -365,11 +337,6 @@ class EnvManager {
     })
   }
 
-  // update({ time, delta }) {}
-
-  /**
-   * Debug
-   */
   _createDebugFolder() {
     if (!Debugger) return
 
@@ -377,14 +344,10 @@ class EnvManager {
       this.#sunDir.position.set(this.#settings.sunDir.x, this.#settings.sunDir.y, this.#settings.sunDir.z)
       this.#ambientLight.color = new Color(this.#settings.ambientLight)
 
-      this.#toonMaterials.forEach((material) => {
-        material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
-        if (material.uniforms.coefShadow) {
-          material.uniforms.coefShadow.value = this.#settings.coefShadow
-        }
-      })
+      uAmbientColor.value = new Color(this.#settings.ambientLight)
+      uCoefShadow.value = this.#settings.coefShadow
+      uSunDirPos.value.copy(this.#sunDir.position)
 
-      // update shadowmap camera
       this.#sunShadowMap.camera.position.copy(this.#sunDir.position)
       this.#sunShadowMap.camera.lookAt(new Vector3(0, 0, 0))
     }
@@ -406,7 +369,7 @@ class EnvManager {
 
     const btn = debugFolder.addButton({
       title: 'Copy settings',
-      label: 'copy', // optional
+      label: 'copy',
     })
 
     btn.on('click', () => {

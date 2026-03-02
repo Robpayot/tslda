@@ -1,4 +1,3 @@
-// Vendor
 import {
   ACESFilmicToneMapping,
   CineonToneMapping,
@@ -6,13 +5,9 @@ import {
   LinearToneMapping,
   NoToneMapping,
   ReinhardToneMapping,
-  WebGLRenderer,
+  WebGPURenderer,
 } from 'three'
 
-// Configs
-// import globalConfig from '@/js/webgl/configs/global'
-
-// Modules
 import Debugger from '@/js/managers/Debugger'
 import Settings from '../utils/Settings'
 import UIManager from '../managers/UIManager'
@@ -23,13 +18,14 @@ export default class Renderer {
   #debugStats
   #instance
   constructor({ canvas }) {
-    // Options
     this.#canvas = canvas
-
-    // Setup
     this.#debug = this._createDebug()
     this.#instance = this._createRenderer()
     this.#debugStats = this._createDebugStats()
+  }
+
+  async init() {
+    await this.#instance.init()
   }
 
   destroy() {
@@ -37,40 +33,27 @@ export default class Renderer {
     this._removeDebug()
   }
 
-  /**
-   * Getters & Setters
-   */
   get instance() {
     return this.#instance
   }
 
-  /**
-   * Public
-   */
   updateStats() {
     Debugger?.pane.refresh()
     this.#instance.info.reset()
   }
 
-  /**
-   * Private
-   */
   _createRenderer() {
-    const renderer = new WebGLRenderer({
+    const renderer = new WebGPURenderer({
       canvas: this.#canvas,
       antialias: Settings.antialias,
       powerPreference: 'high-performance',
+      forceWebGL: true,
     })
 
     const clearColor = new Color(0xffffff)
     const clearAlpha = 1
     renderer.setClearColor(clearColor, clearAlpha)
     renderer.toneMapping = LinearToneMapping
-    // renderer.shadowMap.enabled = true
-    // renderer.shadowMap.type = PCFSoftShadowMap
-    // renderer.shadowMap.type = BasicShadowMap
-    // renderer.info.autoReset = false
-    // renderer.outputColorSpace = SRGBColorSpace
     renderer.autoClear = false
 
     if (this.#debug) {
@@ -95,46 +78,28 @@ export default class Renderer {
     return renderer
   }
 
-  /**
-   * Render
-   */
   render(scene, camera) {
     this.#instance.render(scene, camera)
   }
 
-  /**
-   * Resize
-   */
   resize({ width, height, dpr }) {
     this.#instance.setPixelRatio(dpr)
     this.#instance.setSize(width, height)
 
     const mainEl = document.querySelector('main')
-    // mainEl.style.overflow = 'hidden'
-    // console.log(document.children[0])
-    // document.body.style.height = `${height}px`
-    // document.children[0].style.height = `${height}px`
   }
 
-  /**
-   * Handlers
-   */
   onExposureChange(exposure) {
     this.#instance.toneMappingExposure = exposure
   }
 
   capture() {
     const base64 = this.#canvas.toDataURL('img/png')
-
     UIManager.screenshotElImg.src = base64
   }
 
-  /**
-   * Debug
-   */
   _createDebug() {
     if (!Debugger) return
-
     const debug = Debugger.addFolder({ title: 'Renderer', index: 1 })
     return debug
   }
