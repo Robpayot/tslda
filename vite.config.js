@@ -5,19 +5,21 @@ import * as path from 'path'
 export default ({ mode }) => {
   return defineConfig({
     root: 'src',
-    base: mode === 'development' ? '/zelda-tsl/' : './', // for Github pages, otherwise use './'
+    base: mode === 'development' ? '/zelda-tsl/' : './',
     build: {
       outDir: '../dist',
       sourcemap: true,
     },
     server: {
-      host: true, // to test on other devices with IP address
+      host: true,
     },
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, './src'),
-        '@glsl': path.resolve(__dirname, './src/js/glsl'),
-      },
+      alias: [
+        { find: '@glsl', replacement: path.resolve(__dirname, './src/js/glsl') },
+        { find: '@', replacement: path.resolve(__dirname, './src') },
+        { find: /^three$/, replacement: path.resolve(__dirname, 'node_modules/three/build/three.webgpu.js') },
+        { find: /^three\/tsl$/, replacement: path.resolve(__dirname, 'node_modules/three/build/three.tsl.js') },
+      ],
     },
     plugins: [glslify()],
   })

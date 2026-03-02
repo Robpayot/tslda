@@ -1,4 +1,3 @@
-// Vendor
 import {
   ACESFilmicToneMapping,
   CineonToneMapping,
@@ -6,13 +5,9 @@ import {
   LinearToneMapping,
   NoToneMapping,
   ReinhardToneMapping,
-  WebGLRenderer,
+  WebGPURenderer,
 } from 'three'
 
-// Configs
-// import globalConfig from '@/js/webgl/configs/global'
-
-// Modules
 import Debugger from '@/js/managers/Debugger'
 import Settings from '../utils/Settings'
 import UIManager from '../managers/UIManager'
@@ -23,13 +18,17 @@ export default class Renderer {
   #debugStats
   #instance
   constructor({ canvas }) {
-    // Options
     this.#canvas = canvas
 
-    // Setup
     this.#debug = this._createDebug()
     this.#instance = this._createRenderer()
     this.#debugStats = this._createDebugStats()
+  }
+
+  async init() {
+    await this.#instance.init()
+    const backendName = this.#instance.backend?.constructor?.name || 'unknown'
+    console.log(`%c[Renderer] Backend: ${backendName}`, 'color: #0f0; font-weight: bold;')
   }
 
   destroy() {
@@ -37,40 +36,27 @@ export default class Renderer {
     this._removeDebug()
   }
 
-  /**
-   * Getters & Setters
-   */
   get instance() {
     return this.#instance
   }
 
-  /**
-   * Public
-   */
   updateStats() {
     Debugger?.pane.refresh()
     this.#instance.info.reset()
   }
 
-  /**
-   * Private
-   */
   _createRenderer() {
-    const renderer = new WebGLRenderer({
+    const renderer = new WebGPURenderer({
       canvas: this.#canvas,
       antialias: Settings.antialias,
       powerPreference: 'high-performance',
+      // forceWebGL: true, // uncomment to force WebGL2 backend
     })
 
     const clearColor = new Color(0xffffff)
     const clearAlpha = 1
     renderer.setClearColor(clearColor, clearAlpha)
     renderer.toneMapping = LinearToneMapping
-    // renderer.shadowMap.enabled = true
-    // renderer.shadowMap.type = PCFSoftShadowMap
-    // renderer.shadowMap.type = BasicShadowMap
-    // renderer.info.autoReset = false
-    // renderer.outputColorSpace = SRGBColorSpace
     renderer.autoClear = false
 
     if (this.#debug) {

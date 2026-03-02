@@ -35,13 +35,10 @@ export default class WebGLApp {
   #composer
   #activeView
   constructor({ canvas, isDevelopment }) {
-    // Options
     this.#canvas = canvas
     this.#isDevelopment = isDevelopment
 
-    // Props
     this.#isActive = true
-    // this._renderScale = globalConfig.rendering.scale
     this.#isViewRenderingEnabled = true
     this.#isStatsGpuQueryStarted = false
 
@@ -49,21 +46,19 @@ export default class WebGLApp {
       Debugger.addTab('Main')
     }
 
-    // this.depthViewer = new ShadowMapViewer(EnvManager.sunDir)
-    // this.depthViewer.size.set(500, 500)
-    // Setup
-    // this._debug = this._createDebug()
     this.#clock = this._createClock()
     this.#renderer = this._createRenderer()
-    // this.#composer = this._createComposer()
 
     if (this.#isDevelopment || query('fps')) {
       this.#stats = this._createStats()
     }
 
-    // if (this.#isDevelopment) {
-    //   // this.#statsGpuPanel = this._createStatsGpuPanel()
-    // }
+    // WebGPU requires async initialization
+    this._initAsync()
+  }
+
+  async _initAsync() {
+    await this.#renderer.init()
 
     this._initViews()
     this._precompile()
@@ -131,18 +126,9 @@ export default class WebGLApp {
     this.#activeView = this.#views.main
   }
 
-  // precompile shaders and materials
   _precompile() {
-    const { scene, camera } = this.#activeView
-    this.#renderer.instance.compile(scene, camera)
-
-    // precompile textures
-    const textures = LoaderManager.textures
-    textures.forEach((texture) => {
-      if (this.#renderer.instance.initTexture) {
-        this.#renderer.instance.initTexture(texture)
-      }
-    })
+    // const { scene, camera } = this.#activeView
+    // this.#renderer.instance.compile(scene, camera)
   }
 
   _createStats() {
