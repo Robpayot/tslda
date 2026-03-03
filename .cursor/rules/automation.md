@@ -17,3 +17,7 @@ This rule automates app analysis:
 - Extracting code comments
 - Analyzing README.md
 - Generating markdown documentation
+
+# TSL conversion
+- Please use @.cursor/skills/tsl/SKILL.md when converting to TSL
+- Always comment anything related to RenderTarget for now, if it's mentioned in the share
