@@ -1,17 +1,15 @@
-import { Color, Mesh, MeshBasicMaterial, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping, ShaderMaterial } from 'three'
+import { Color, DataTexture, Mesh, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping } from 'three'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import {
   Fn, uniform, varying,
   float, vec2, vec3, vec4,
   uv, positionLocal, modelViewMatrix,
-  distance, step, exp, mix,
+  distance, step, exp, mix, sin, cos, smoothstep, min, abs, pow,
+  texture, select,
 } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
-
-import vertexShader from '@glsl/ocean/main.vert'
-import fragmentShader from '@glsl/ocean/main.frag'
 import { gsap } from 'gsap'
 import EnvManager from '../../managers/EnvManager'
 import GridManager from '../../managers/GridManager'
@@ -27,7 +25,13 @@ export const REPEAT_OCEAN = 70
 export const Y_STRENGTH_OCEAN = 23.34
 const GEOMETRY = new PlaneGeometry(1, 1, SEGMENTS_OCEAN, SEGMENTS_OCEAN) // 200, 200
 
-//
+/** Placeholder 1x1 texture so TSL texture() always receives a valid Texture (e.g. before load). */
+function getValidTexture(maybeTexture) {
+  if (maybeTexture != null && maybeTexture.isTexture) return maybeTexture
+  const placeholder = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+  placeholder.needsUpdate = true
+  return placeholder
+}
 
 export default class Ocean extends Object3D {
   #material
@@ -49,8 +53,8 @@ export default class Ocean extends Object3D {
 
     this.#debug = debug
 
-    // this._createMaterial()
-    // this.#mesh = this._createMesh()
+    this._createMaterial()
+    this.#mesh = this._createMesh()
 
     this._createDebugFolder()
 
@@ -77,61 +81,252 @@ export default class Ocean extends Object3D {
   }
 
   _createMaterial() {
-    const texture = LoaderManager.get('ocean-tile').texture
+    const oceanAsset = LoaderManager.get('ocean-tile')
+    const trailAsset = LoaderManager.get('trail')
+    const mapTexture = getValidTexture(oceanAsset?.texture)
+    const trailMapTexture = getValidTexture(trailAsset?.texture)
+    mapTexture.wrapS = mapTexture.wrapT = RepeatWrapping
+    trailMapTexture.wrapS = trailMapTexture.wrapT = RepeatWrapping
 
-    texture.wrapS = texture.wrapT = RepeatWrapping
+    // EnvManager.sunShadowMap – commented out for now
+    // const sunShadowMap = EnvManager.sunShadowMap
 
-    const textureTrail = LoaderManager.get('trail').texture
+    // Uniforms (stored on instance for update() and debug)
+    this.uMap = uniform(mapTexture)
+    this.uTrailMap = uniform(trailMapTexture)
+    this.uColor = uniform(new Color(this.#settings.color))
+    this.uRepeat = uniform(EnvManager.settingsOcean.repeat)
+    this.uTimeTex = uniform(0)
+    this.uDirTex = uniform(ControllerManager.joystick)
+    this.uTimeWave = uniform(0)
+    this.uYScale = uniform(EnvManager.settingsOcean.yScale)
+    this.uYStrength = uniform(EnvManager.settingsOcean.yStrength)
+    this.uAlphaTex = uniform(EnvManager.settingsOcean.alphaTex)
+    this.uAlphaTex2 = uniform(EnvManager.settingsOcean.alphaTex2)
+    this.uTrailRotation = uniform(this.#settings.trailRotation)
+    this.uTrailProgress = uniform(this.#settings.trailProgress)
+    this.uTrailTurn = uniform(this.#settings.trailTurn)
+    this.uTrailOpacity = uniform(0)
+    this.uTrailJumpOffset = uniform(0)
+    this.uTrailJumpOpacity = uniform(1)
+    this.uFogColor = uniform(new Color(this.#settings.fogColor))
+    this.uFogDensity = uniform(this.#settings.fogDensity)
+    // EnvManager.sunShadowMap – commented out
+    // if (sunShadowMap) {
+    //   this.uDepthMap = uniform(sunShadowMap.map.texture)
+    //   this.uShadowCameraP = uniform(sunShadowMap.camera.projectionMatrix)
+    //   this.uShadowCameraV = uniform(sunShadowMap.camera.matrixWorldInverse)
+    // }
 
-    textureTrail.wrapS = textureTrail.wrapT = RepeatWrapping
+    const waveDirCoef = 0.02
+    const repeatTrail = 190.52
+    const depthFog = 1000.0
+    const center = vec2(0.5, 0.5)
+    const nbTrailVisible = 4.0
 
-    this.#material = new ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      uniforms: {
-        map: { value: texture },
-        trailMap: { value: textureTrail },
-        color: { value: new Color(this.#settings.color) },
-        repeat: { value: EnvManager.settingsOcean.repeat },
-        timeTex: { value: 0 },
-        dirTex: { value: ControllerManager.joystick },
-        timeWave: { value: 0 },
-        yScale: { value: EnvManager.settingsOcean.yScale },
-        yStrength: { value: EnvManager.settingsOcean.yStrength },
-        alphaTex: { value: EnvManager.settingsOcean.alphaTex },
-        alphaTex2: { value: EnvManager.settingsOcean.alphaTex2 },
-        trailRotation: { value: this.#settings.trailRotation },
-        trailProgress: { value: this.#settings.trailProgress },
-        trailTurn: { value: this.#settings.trailTurn },
-        trailOpacity: { value: 0 },
-        trailJumpOffset: { value: 0 },
-        trailJumpOpacity: { value: 1 },
-        // shadows
-        uDepthMap: {
-          value: EnvManager.sunShadowMap.map.texture,
-        },
-        uShadowCameraP: {
-          value: EnvManager.sunShadowMap.camera.projectionMatrix,
-        },
-        uShadowCameraV: {
-          value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-        },
-        // heightMap: { value: OceanHeightMap.heightMap.texture },
-        // fog
-        fogColor: {
-          value: new Color(this.#settings.fogColor),
-        },
-        fogDensity: {
-          value: this.#settings.fogDensity,
-        },
-      },
-      defines: {
-        USE_SHADOWS: Settings.castShadows,
-      },
-      // visible: false
-      // transparent: true,
-      // wireframe: true
+    const vUv = varying(vec2(0, 0), 'vUv')
+    const vDepth = varying(float(0), 'vDepth')
+    const vFogDepth = varying(float(0), 'vFogDepth')
+    const vUvTrail = varying(vec2(0, 0), 'vUvTrail')
+    const vRepeatTrail = varying(float(0), 'vRepeatTrail')
+    // EnvManager.sunShadowMap – commented out
+    // const vNormal = varying(vec3(0, 0, 0), 'vNormal')
+    // const vShadowCoord = varying(vec4(0, 0, 0, 0), 'vShadowCoord')
+
+    const positionFn = Fn(() => {
+      const pos = positionLocal.toVar()
+      const uRepeat = this.uRepeat
+      const uTimeWave = this.uTimeWave
+      const uYScale = this.uYScale
+      const uYStrength = this.uYStrength
+      const uDirTex = this.uDirTex
+
+      const calculateSurface = (x, z) => {
+        const y1 = sin(x.mul(1.0).div(uYScale).add(uTimeWave.mul(1.0)))
+          .add(sin(x.mul(2.3).div(uYScale).add(uTimeWave.mul(1.5))))
+          .add(sin(x.mul(3.3).div(uYScale).add(uTimeWave.mul(0.4))))
+        const y2 = sin(z.mul(0.2).div(uYScale).add(uTimeWave.mul(1.8)))
+          .add(sin(z.mul(1.8).div(uYScale).add(uTimeWave.mul(1.8))))
+          .add(sin(z.mul(2.8).div(uYScale).add(uTimeWave.mul(0.8))))
+        return y1.div(3.0).add(y2.div(3.0))
+      }
+
+      vUv.assign(uv().mul(uRepeat))
+      vRepeatTrail.assign(float(repeatTrail))
+      vUvTrail.assign(
+        uv()
+          .sub(vec2(0.5, 0.5))
+          .add(vec2(1.0 / repeatTrail / 2.0, 1.0 / repeatTrail / 2.0))
+          .mul(float(repeatTrail))
+      )
+
+      const dirWave = uDirTex.mul(float(waveDirCoef))
+      const surf = uYStrength.mul(
+        calculateSurface(pos.x.add(dirWave.x), pos.y.add(dirWave.y)).sub(
+          calculateSurface(float(0).add(dirWave.x), float(0).add(dirWave.y))
+        )
+      )
+      pos.z.addAssign(surf)
+
+      const circle = distance(vec2(pos.x, pos.y), vec2(0, 0))
+      pos.z.mulAssign(float(0.5).sub(circle))
+
+      const mvPosition = modelViewMatrix.mul(vec4(pos, 1.0))
+      vDepth.assign(mvPosition.z.negate().div(depthFog).clamp(0.0, 1.0))
+      vFogDepth.assign(mvPosition.z.negate())
+
+      // EnvManager.sunShadowMap – commented out
+      // vNormal.assign(normalLocal)
+      // if (sunShadowMap && this.uShadowCameraP) {
+      //   vShadowCoord.assign(
+      //     this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelMatrix).mul(vec4(positionLocal, 1.0))
+      //   )
+      // } else {
+      //   vShadowCoord.assign(vec4(0, 0, 0, 1))
+      // }
+
+      return pos
     })
+
+    const colorFn = Fn(() => {
+      const vUvFrag = vUv.add(this.uDirTex)
+      const timeTex = this.uTimeTex
+      const uvDistorted = vUvFrag.toVar()
+      uvDistorted.y.addAssign(
+        float(0.01)
+          .mul(
+            sin(uvDistorted.x.mul(3.5).add(timeTex.mul(0.35)))
+              .add(sin(uvDistorted.x.mul(4.8).add(timeTex.mul(1.05))))
+              .add(sin(uvDistorted.x.mul(7.3).add(timeTex.mul(0.45))))
+          )
+          .div(3.0)
+      )
+      uvDistorted.x.addAssign(
+        float(0.12)
+          .mul(
+            sin(uvDistorted.y.mul(4.0).add(timeTex.mul(0.5)))
+              .add(sin(uvDistorted.y.mul(6.8).add(timeTex.mul(0.75))))
+              .add(sin(uvDistorted.y.mul(11.3).add(timeTex.mul(0.2))))
+          )
+          .div(3.0)
+      )
+      uvDistorted.y.addAssign(
+        float(0.12)
+          .mul(
+            sin(uvDistorted.x.mul(4.2).add(timeTex.mul(0.64)))
+              .add(sin(uvDistorted.x.mul(6.3).add(timeTex.mul(1.65))))
+              .add(sin(uvDistorted.x.mul(8.2).add(timeTex.mul(0.45))))
+          )
+          .div(3.0)
+      )
+
+      const tex = texture(mapTexture, uvDistorted)
+      const texOffset = texture(mapTexture, uvDistorted.add(vec2(0.3, 0)))
+      const alphaTex = this.uAlphaTex
+      const alphaTex2 = this.uAlphaTex2
+      const color = this.uColor
+      let texColor = tex.rgb.mul(alphaTex).add(vec3(color)).sub(texOffset.a.mul(alphaTex2).mul(alphaTex))
+      texColor = mix(texColor, vec3(color), vDepth)
+
+      const uvOrigin = vUv.div(this.uRepeat)
+      const circleFrag = distance(uvOrigin, center)
+      const alpha = smoothstep(float(0.5), float(0.505), float(1).sub(circleFrag))
+      const oceanTex = vec4(texColor, alpha)
+
+      const rotateUV = (uvVec, rotation, mid) =>
+        vec2(
+          cos(rotation).mul(uvVec.x.sub(mid)).add(sin(rotation).mul(uvVec.y.sub(mid))).add(mid),
+          cos(rotation).mul(uvVec.y.sub(mid)).sub(sin(rotation).mul(uvVec.x.sub(mid))).add(mid)
+        )
+
+      const distortUVTrail = rotateUV(vec2(vUvTrail.x, vUvTrail.y), this.uTrailRotation, float(0.5))
+      const trailTexOffset = this.uTrailProgress.mul(vRepeatTrail)
+      const distortionView = distance(vec2(0.5, 0.5), vUvTrail)
+
+      const trailOff = distortUVTrail.sub(vec2(0.5, 0.5)).sub(
+        vec2(0, 0.5).sub(trailTexOffset).add(this.uTrailJumpOffset)
+      )
+      const trailPosYOffset = 0.5
+      const yCoef = trailOff.y.sub(trailTexOffset).div(nbTrailVisible).sub(float(trailPosYOffset))
+      const trailX = trailOff.x
+        .div(yCoef)
+        .sub(float(1).mul(yCoef.div(vRepeatTrail).sub(0.5)))
+        .add(
+          abs(pow(yCoef.add(float(trailPosYOffset).sub(0.2)), 3.0))
+            .mul(this.uTrailTurn)
+            .mul(float(1).div(this.uTrailOpacity.add(0.1)))
+            .mul(3.0)
+        )
+      const transformedTrailUV = vec2(trailX, trailOff.y)
+      const distortUVTrailFinal = select(
+        distortionView.greaterThan(float(0.05)),
+        transformedTrailUV,
+        distortUVTrail
+      )
+
+      let trailTex = texture(trailMapTexture, distortUVTrailFinal).mul(min(alphaTex.mul(20), float(1)))
+      trailTex = vec4(
+        trailTex.xyz.mul(smoothstep(float(0.1), float(0.3), trailTex.r)),
+        trailTex.a
+      )
+      const hiddenTrailPart = step(float(0), distortUVTrailFinal.y.negate().add(trailTexOffset))
+        .mul(
+          smoothstep(
+            float(-nbTrailVisible).mul(this.uTrailOpacity),
+            float(-nbTrailVisible).mul(this.uTrailOpacity).add(3.0),
+            distortUVTrailFinal.y.sub(trailTexOffset)
+          )
+        )
+        .mul(step(float(0), float(1).sub(distortUVTrailFinal.x)))
+        .mul(step(float(0), distortUVTrailFinal.x))
+      trailTex = vec4(
+        trailTex.xyz,
+        trailTex.a.mul(hiddenTrailPart).mul(this.uTrailOpacity).mul(this.uTrailJumpOpacity)
+      )
+
+      const finalColor = oceanTex.xyz
+        .mul(float(1).sub(trailTex.a))
+        .add(mix(trailTex.xyz, oceanTex.xyz, float(0.1)).mul(trailTex.a))
+        .toVar()
+
+      // EnvManager.sunShadowMap – commented out
+      // if (sunShadowMap && this.uDepthMap && Settings.castShadows) {
+      //   const shadowCoord = vShadowCoord.xyz.div(vShadowCoord.w).mul(0.5).add(0.5)
+      //   const depthMapUv = shadowCoord.xy
+      //   const depthVec = texture(this.uDepthMap, depthMapUv)
+      //   const unpackScale = vec4(
+      //     1.0 / 256.0,
+      //     1.0 / 65025.0,
+      //     1.0 / 65025.0 / 256.0,
+      //     1.0 / 65025.0 / 65025.0
+      //   )
+      //   const depthFromMap = dot(depthVec, unpackScale)
+      //   const depthShadowCoord = shadowCoord.z
+      //   const bias = 0.01
+      //   let shadowFactor = step(depthShadowCoord.sub(bias), depthFromMap)
+      //   const inFrustum = shadowCoord.x
+      //     .greaterThanEqual(0)
+      //     .and(shadowCoord.x.lessThanEqual(1))
+      //     .and(shadowCoord.y.greaterThanEqual(0))
+      //     .and(shadowCoord.y.lessThanEqual(1))
+      //   const inZ = shadowCoord.z.lessThanEqual(1)
+      //   shadowFactor = select(inFrustum.and(inZ), shadowFactor, float(1))
+      //   const shadowDarkness = 0.5
+      //   const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactor)
+      //   finalColor.assign(finalColor.mul(shadow))
+      // }
+
+      const fogFactor = float(1).sub(
+        exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate())
+      )
+      finalColor.assign(mix(finalColor, vec3(this.uFogColor), fogFactor))
+
+      return vec4(finalColor, 1.0)
+    })
+
+    this.#material = new NodeMaterial()
+    this.#material.positionNode = positionFn()
+    this.#material.colorNode = colorFn()
   }
 
   get mainMaterial() {
@@ -187,7 +382,6 @@ export default class Ocean extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    return
     const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
 
     // OceanHeightMap.material.uniforms.timeWave.value = this.#material.uniforms.timeWave.value
@@ -195,38 +389,38 @@ export default class Ocean extends Object3D {
     // OceanHeightMap.material.uniforms.yScale.value = this.#material.uniforms.yScale.value = yScale
     // OceanHeightMap.material.uniforms.yStrength.value = this.#material.uniforms.yStrength.value = yStrength
     // Env
-    this.#material.uniforms.color.value = new Color(color)
-    this.meshExtend.material.uniforms.color.value = new Color(color)
-    this.#material.uniforms.alphaTex.value = alphaTex
-    this.#material.uniforms.alphaTex2.value = alphaTex2
-    this.#material.uniforms.fogColor.value = new Color(fogColor)
-    this.#material.uniforms.fogDensity.value = fogDensity
-    this.meshExtend.material.uniforms.fogColor.value = new Color(fogColor)
-    this.meshExtend.material.uniforms.fogDensity.value = fogDensity
+    this.uColor.value = new Color(color)
+    this.uExtColor.value = new Color(color)
+    this.uAlphaTex.value = alphaTex
+    this.uAlphaTex2.value = alphaTex2
+    this.uFogColor.value = new Color(fogColor)
+    this.uFogDensity.value = fogDensity
+    this.uExtFogColor.value = new Color(fogColor)
+    this.uExtFogDensity.value = fogDensity
 
     // texture
-    this.#material.uniforms.timeWave.value += (delta / 16) * speedWave
-    this.#material.uniforms.timeTex.value += (delta / 16) * speedTex * (1 + ControllerManager.boat.velocityP)
+    this.uTimeWave.value += (delta / 16) * speedWave
+    this.uTimeTex.value += (delta / 16) * speedTex * (1 + ControllerManager.boat.velocityP)
     // to do also update other uniforms based on EnvManager
     // TODO: compense by camera direction
 
     // Texture trail
-    this.#material.uniforms.trailRotation.value = ControllerManager.boat.angleDir
-    this.#material.uniforms.trailTurn.value = ControllerManager.boat.turnForce
+    this.uTrailRotation.value = ControllerManager.boat.angleDir
+    this.uTrailTurn.value = ControllerManager.boat.turnForce
 
     if (this.canTrailOpacity) {
-      this.#material.uniforms.trailOpacity.value = ControllerManager.boat.velocityP
+      this.uTrailOpacity.value = ControllerManager.boat.velocityP
     }
 
     if (this.canTrailProgress) {
       if (!(ModeManager.state === MODE.GAME_STARTED && GameManager.paused)) {
-        this.#material.uniforms.trailProgress.value += ControllerManager.boat.velocity * 0.016
+        this.uTrailProgress.value += ControllerManager.boat.velocity * 0.016
       }
     }
 
     // Jump
     if (ControllerManager.boat.up > 0) {
-      this.#material.uniforms.trailJumpOffset.value -= ControllerManager.boat.velocity * 1.2
+      this.uTrailJumpOffset.value -= ControllerManager.boat.velocity * 1.2
       if (!this.startJump) {
         this.startJump = true
         this.finishJump = false
@@ -234,7 +428,7 @@ export default class Ocean extends Object3D {
         this.canTrailProgress = false
         this.tlJump?.kill()
         this.tlJumpFinish?.kill()
-        this.tlJump = gsap.to(this.#material.uniforms.trailJumpOpacity, {
+        this.tlJump = gsap.to(this.uTrailJumpOpacity, {
           value: 0,
           duration: 0.15,
         })
@@ -243,15 +437,15 @@ export default class Ocean extends Object3D {
       this.startJump = false
       if (!this.finishJump) {
         this.canTrailProgress = true
-        this.#material.uniforms.trailJumpOffset.value = 0
-        this.#material.uniforms.trailJumpOpacity.value = 1
+        this.uTrailJumpOffset.value = 0
+        this.uTrailJumpOpacity.value = 1
         this.finishJump = true
         this.canTrailOpacity = false
         this.tlJumpFinish?.kill()
         this.tlJump?.kill()
         if (ControllerManager.boat.velocityP > 0.5) {
           this.tlJumpFinish = gsap.fromTo(
-            this.#material.uniforms.trailOpacity,
+            this.uTrailOpacity,
             {
               value: 0,
             },
@@ -277,10 +471,8 @@ export default class Ocean extends Object3D {
     if (!this.#debug) return
 
     const settingsChangedHandler = () => {
-      if (this.#material?.uniforms) {
-        this.#material.uniforms.fogDensity.value = this.#settings.fogDensity
-        this.#material.uniforms.fogColor.value = new Color(this.#settings.fogColor)
-      }
+      this.uFogDensity.value = this.#settings.fogDensity
+      this.uFogColor.value = new Color(this.#settings.fogColor)
       this.uExtFogDensity.value = this.#settings.fogDensity
       this.uExtFogColor.value = new Color(this.#settings.fogColor)
     }

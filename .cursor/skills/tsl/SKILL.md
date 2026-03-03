@@ -43,11 +43,13 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 
 ---
 
-## YSL conversion
+## TSL conversion
 
 - Please comment anything related to RenderTarget for now, comment it in the node material if used inside the shader to prevent any errors.
 
 - Please comment anything related to shadow casting.
+
+- Please run `npm run dev` and check for JS errors after conversion.
 
 ## Imports
 
