@@ -58,7 +58,7 @@ export default class Ocean extends Object3D {
 
     this._createDebugFolder()
 
-    // OceanHeightMap.init(scene)
+    OceanHeightMap.init(scene)
 
     // extend
     this.uExtColor = uniform(new Color(this.#settings.color))
@@ -384,10 +384,11 @@ export default class Ocean extends Object3D {
   update({ time, delta }) {
     const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
 
-    // OceanHeightMap.material.uniforms.timeWave.value = this.#material.uniforms.timeWave.value
-    // OceanHeightMap.material.uniforms.dirTex.value = this.#material.uniforms.dirTex.value = GridManager.offsetUV
-    // OceanHeightMap.material.uniforms.yScale.value = this.#material.uniforms.yScale.value = yScale
-    // OceanHeightMap.material.uniforms.yStrength.value = this.#material.uniforms.yStrength.value = yStrength
+    OceanHeightMap.uTimeWave.value = this.uTimeWave.value
+    OceanHeightMap.uDirTex.value = GridManager.offsetUV
+    this.uDirTex.value = GridManager.offsetUV
+    OceanHeightMap.uYScale.value = yScale
+    OceanHeightMap.uYStrength.value = yStrength
     // Env
     this.uColor.value = new Color(color)
     this.uExtColor.value = new Color(color)

@@ -208,7 +208,8 @@ export default class WebGLApp {
 
     const view = this.#views.main
 
-    // render Target for Ocean Height Map
+    // Render target for ocean height map (works with both WebGL and WebGPU backends).
+    // Ensure renderer.init() has been awaited before the first frame.
     if (OceanHeightMap.scene && Settings.heightMap) {
       this.#renderer.instance.setRenderTarget(OceanHeightMap.heightMap)
       this.#renderer.instance.clear()
