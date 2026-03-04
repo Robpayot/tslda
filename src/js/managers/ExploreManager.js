@@ -134,7 +134,6 @@ class ExploreManager {
   }
 
   init(scene, camera) {
-
     this.camera = camera
     this.#parent = new Object3D()
     scene.add(this.#parent)
@@ -148,11 +147,10 @@ class ExploreManager {
       this.#winds.push(wind)
     }
 
-    return
-
-
     this.#waves = new Waves()
     this.#parent.add(this.#waves.mesh)
+
+    return
 
     this.#lightnings = new Lightnings()
     this.#parent.add(this.#lightnings.mesh)
@@ -202,9 +200,6 @@ class ExploreManager {
         this.#winds[i].anim()
       }, 1000 * i)
     }
-
-    return
-
 
     // prevent double event listened
     if (this.subHit && typeof this.subHit.unsubscribe === 'function') {
@@ -553,7 +548,6 @@ class ExploreManager {
   }
 
   update({ time, delta }) {
-    return
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
@@ -563,12 +557,14 @@ class ExploreManager {
     // waves
     if (EnvManager.settingsOcean.alphaWaves > 0) {
       sortPoints(this.#waves.mesh, this.camera)
-      this.#waves.material.uniforms.uTime.value += (delta / 16) * 0.1
-      this.#waves.material.uniforms.globalOpacity.value = EnvManager.settingsOcean.alphaWaves
+      this.#waves.material.uTime.value += (delta / 16) * 0.1
+      this.#waves.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaWaves
 
       this.#waves.mesh.position.x = this.#waves.mesh.initPos.x - playerX
       this.#waves.mesh.position.z = this.#waves.mesh.initPos.z + playerZ
     }
+
+    return
 
     if (EnvManager.settingsOcean.alphaLightnings > 0) {
       sortPoints(this.#lightnings.mesh, this.camera)

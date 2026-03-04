@@ -58,7 +58,7 @@ export default class MainView {
     // GridManager.init(this.#scene)
     // GameManager.init(this.#scene)
     ExploreManager.init(this.#scene, this.camera)
-    // EnvManager.setOceanExtend(this.#components.ocean?.meshExtend)
+    EnvManager.setOceanExtend(this.#components.ocean?.meshExtend)
     // EnvManager.setToonMaterials()
     ModeManager.addCamera(this.#cameraManager)
 
