@@ -3,7 +3,7 @@ import Winds from '../components/Entitites/Winds'
 import { EventBusSingleton } from 'light-event-bus'
 import { CLOSE_TREASURE, EVENT_HIT, EVENT_SCORE, EXPLORE_MESSAGE, MODE, START_EXPLORE } from '../utils/constants'
 import Waves from '../components/Entitites/Waves'
-import { sortPoints } from '../utils/three'
+import { sortPoints, sortInstancedMesh } from '../utils/three'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../components/Ocean'
 import GridManager from './GridManager'
 import EnvManager from './EnvManager'
@@ -556,7 +556,7 @@ class ExploreManager {
 
     // waves
     if (EnvManager.settingsOcean.alphaWaves > 0) {
-      sortPoints(this.#waves.mesh, this.camera)
+      sortInstancedMesh(this.#waves.mesh, this.camera)
       this.#waves.material.uTime.value += (delta / 16) * 0.1
       this.#waves.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaWaves
 

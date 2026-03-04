@@ -174,7 +174,7 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 3
+      this.#index = 1 // update to debug
     }
     this.tl?.kill()
     this.tl = new gsap.timeline()

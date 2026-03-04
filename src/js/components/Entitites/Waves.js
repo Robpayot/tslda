@@ -1,21 +1,23 @@
-import { Float32BufferAttribute, Points } from 'three'
+import {
+  InstancedBufferAttribute,
+  Matrix4,
+  PlaneGeometry,
+  InstancedMesh,
+  DoubleSide,
+} from 'three'
 import { NodeMaterial } from 'three/webgpu'
-import { BufferGeometry } from 'three'
 
 import {
   Fn,
-  attribute,
   varying,
   uniform,
   float,
   vec2,
-  vec3,
   vec4,
   sin,
   texture,
   uv,
-  positionLocal,
-  positionView,
+  instanceIndex,
   If,
   Discard,
 } from 'three/tsl'
@@ -30,13 +32,16 @@ import EnvManager from '../../managers/EnvManager'
 
 const NB_POINTS = 300
 const RANGE = 1200
+const SPRITE_SCALE = 7
+
+// Set to true to force bright red quads (no texture/discard) to verify waves are in the scene
+const WAVES_DEBUG_VISIBLE = true
+
 export default class Waves {
   #geo
   #mesh
   #material
-  #index
   constructor() {
-    this.#geo
     this.#material = this._createMaterial()
     this.#mesh = this._createMesh()
 
@@ -67,43 +72,31 @@ export default class Waves {
     const waveAsset = LoaderManager.get('wave')
     const mapTexture = LoaderManager.getTexture('wave')
     const texSource = waveAsset?.texture?.source?.data
-    const textureW = texSource?.naturalWidth ?? 1
     const textureH = texSource?.naturalHeight ?? 1
+    const textureW = texSource?.naturalWidth ?? 1
     if (waveAsset?.texture) waveAsset.texture.flipY = false
 
     const uTime = uniform(0)
-    const uSize = uniform(450)
     const uRatioTexture = uniform(textureH / textureW)
     const uOpacity = uniform(1)
     const uGlobalOpacity = uniform(EnvManager.settingsOcean.alphaWaves)
 
-    const offsetAttr = attribute('offset', 'float')
-    const speedAttr = attribute('speed', 'float')
-
+    // Per-instance phase from instanceIndex (no custom InstancedBufferAttribute in shader - more reliable in WebGPU)
+    const offsetNode = float(instanceIndex).mul(0.33)
+    const speedNode = float(1).add(float(instanceIndex).mul(0.002))
     const vProgress = varying(
-      sin(uTime.mul(0.1).mul(speedAttr).add(offsetAttr)),
+      sin(uTime.mul(0.1).mul(speedNode).add(offsetNode)),
       'vProgress'
     )
     const vProgressAlpha = varying(
-      sin(uTime.mul(0.1).add(offsetAttr)),
+      sin(uTime.mul(0.1).add(offsetNode)),
       'vProgressAlpha'
     )
 
-    // Vertex: optional heightmap displacement (commented – RenderTarget; uncomment when supported)
-    // const heightMapTex = OceanHeightMap.heightMap?.texture
-    // const uvGrid = vec2(0.5.add(positionWorld.x.div(scaleOcean)), 0.5.sub(positionWorld.z.div(scaleOcean)))
-    // const heightMapPos = texture(heightMapTex, uvGrid)
-    // ... 5-tap average and gl_Position.y += (avgH - 0.5) * 2. * (heightMapPos.b * 100.) * 2.
-    const displacement = float(0)
-    const positionNodeFn = Fn(() => positionLocal.add(vec3(float(0), displacement, float(0))))
-
-    const sizeNodeFn = Fn(() => {
-      const base = float(100).div(positionView.z.negate())
-      return uSize.mul(float(1).add(vProgress.mul(0.2))).mul(base)
-    })
-
     const colorFn = Fn(() => {
-      // pointUV (gl_PointCoord) is WebGL-only; WebGPU uses uv() for Points
+      if (WAVES_DEBUG_VISIBLE) {
+        return vec4(1.0, 0.2, 0.2, 0.95)
+      }
       const uvBase = uv()
       const alpha = float(1).sub(vProgressAlpha)
       const ratioUV = uRatioTexture.mul(float(0.5).add(vProgress.mul(0.5)))
@@ -120,13 +113,13 @@ export default class Waves {
     })
 
     const material = new NodeMaterial()
-    material.positionNode = positionNodeFn()
-    material.sizeNode = sizeNodeFn()
     material.colorNode = colorFn()
+    material.side = DoubleSide
     material.transparent = true
+    material.depthWrite = false
+    material.depthTest = true
 
     material.uTime = uTime
-    material.uSize = uSize
     material.uRatioTexture = uRatioTexture
     material.uOpacity = uOpacity
     material.uGlobalOpacity = uGlobalOpacity
@@ -135,32 +128,36 @@ export default class Waves {
   }
 
   _createMesh() {
-    const vertices = []
+    const positions = []
     const offsets = []
     const speeds = []
 
     for (let i = 0; i < NB_POINTS; i++) {
-      const x = randFloatSpread(RANGE)
-      const y = 0
-      const z = randFloatSpread(RANGE)
-
-      vertices.push(x, y, z)
-
-      const offset = randFloat(0, 100)
-      offsets.push(offset)
-
-      const speed = randFloat(1, 1.5)
-      speeds.push(speed)
+      positions.push(randFloatSpread(RANGE), 0, randFloatSpread(RANGE))
+      offsets.push(randFloat(0, 100))
+      speeds.push(randFloat(1, 1.5))
     }
 
-    const geometry = new BufferGeometry()
-    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3))
-    geometry.setAttribute('offset', new Float32BufferAttribute(offsets, 1))
-    geometry.setAttribute('speed', new Float32BufferAttribute(speeds, 1))
-    let mesh = new Points(geometry, this.#material)
-    mesh.position.y = 4
+    const planeGeo = new PlaneGeometry(1, 1)
+    planeGeo.setAttribute('offset', new InstancedBufferAttribute(new Float32Array(offsets), 1))
+    planeGeo.setAttribute('speed', new InstancedBufferAttribute(new Float32Array(speeds), 1))
 
+    const mesh = new InstancedMesh(planeGeo, this.#material, NB_POINTS)
+    const matrix = new Matrix4()
+
+    for (let i = 0; i < NB_POINTS; i++) {
+      matrix.identity()
+      matrix.setPosition(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
+      matrix.scale(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE)
+      mesh.setMatrixAt(i, matrix)
+    }
+    mesh.instanceMatrix.needsUpdate = true
+
+    mesh.position.y = 4
     mesh.initPos = mesh.position.clone()
+    mesh.visible = true
+    mesh.renderOrder = 5
+    mesh.frustumCulled = false
 
     return mesh
   }
