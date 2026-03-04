@@ -1,4 +1,4 @@
-import { Color, DataTexture, Mesh, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping } from 'three'
+import { Color, Mesh, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping } from 'three'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import {
@@ -24,14 +24,6 @@ export const SEGMENTS_OCEAN = 200
 export const REPEAT_OCEAN = 70
 export const Y_STRENGTH_OCEAN = 23.34
 const GEOMETRY = new PlaneGeometry(1, 1, SEGMENTS_OCEAN, SEGMENTS_OCEAN) // 200, 200
-
-/** Placeholder 1x1 texture so TSL texture() always receives a valid Texture (e.g. before load). */
-function getValidTexture(maybeTexture) {
-  if (maybeTexture != null && maybeTexture.isTexture) return maybeTexture
-  const placeholder = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
-  placeholder.needsUpdate = true
-  return placeholder
-}
 
 export default class Ocean extends Object3D {
   #material
@@ -81,10 +73,8 @@ export default class Ocean extends Object3D {
   }
 
   _createMaterial() {
-    const oceanAsset = LoaderManager.get('ocean-tile')
-    const trailAsset = LoaderManager.get('trail')
-    const mapTexture = getValidTexture(oceanAsset?.texture)
-    const trailMapTexture = getValidTexture(trailAsset?.texture)
+    const mapTexture = LoaderManager.getTexture('ocean-tile')
+    const trailMapTexture = LoaderManager.getTexture('trail')
     mapTexture.wrapS = mapTexture.wrapT = RepeatWrapping
     trailMapTexture.wrapS = trailMapTexture.wrapT = RepeatWrapping
 

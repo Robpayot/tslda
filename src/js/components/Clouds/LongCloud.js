@@ -52,8 +52,7 @@ export default class LongCloud extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
-    this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.speedTex
+    this.#material.uTime.value += (delta / 16) * this.#settings.speedTex
 
     this.#currentAngle += this.#speed * this.#dir * (delta / 16) * 0.00004
 

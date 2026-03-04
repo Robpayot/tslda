@@ -9,9 +9,6 @@ You're the best TSL developer in the world
 
 Always check the doc! @.cursor/skills/tsl/references/TSL-DOC.md and @.cursor/skills/tsl/references/TSL-WIKI.md
 
----
-## ⛔ DO NOT USE - DEPRECATED/OBSOLETE (r181+)
----
 
 **STOP. Read this section first. These will cause errors or warnings.**
 
@@ -50,6 +47,8 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 - Please comment anything related to shadow casting.
 
 - Please run `npm run dev` and check for JS errors after conversion.
+
+- To avoid this error: "THREE.TSL: NodeError: THREE.TSL: `texture( value )` function expects a valid instance of THREE.Texture()." Please pass textures in uniform().
 
 ## Imports
 

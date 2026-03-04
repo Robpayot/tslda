@@ -29,16 +29,17 @@ export default class Horizon extends Object3D {
     this.uColor1 = uniform(new Color(this.#settings.color1))
     this.uColor2 = uniform(new Color(this.#settings.color2))
 
-    const colorFn = Fn(() => {
+    const fragmentFn = Fn(() => {
       const power = pow(float(1).sub(uv().x), 4.0)
       const color = mix(vec3(this.uColor1), vec3(this.uColor2), power)
       return vec4(color, 1.0)
     })
 
     this.#material = new NodeMaterial()
-    this.#material.colorNode = colorFn()
+    this.#material.fragmentNode = fragmentFn()
     this.#material.side = BackSide
     this.#material.depthTest = false
+    this.#material.depthWrite = false
   }
 
   _createMesh() {

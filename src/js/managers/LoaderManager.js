@@ -2,10 +2,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
-import { RepeatWrapping, TextureLoader } from 'three'
+import { DataTexture, RepeatWrapping, TextureLoader } from 'three'
+
+const _defaultTexture = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+_defaultTexture.needsUpdate = true
 
 class LoaderManager {
   assets
+  defaultTexture = _defaultTexture
   constructor() {
     this.assets = {} // Dictionary of assets, can be different type, gltf, texture, img, font, feel free to make a Enum if using TypeScript
 
@@ -35,6 +39,10 @@ class LoaderManager {
 
   get(name) {
     return this.assets[name]
+  }
+
+  getTexture(name) {
+    return this.assets[name]?.texture ?? this.defaultTexture
   }
 
   load = (data) =>

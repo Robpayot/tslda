@@ -1,9 +1,5 @@
-import { Color, Object3D, ShaderMaterial, Vector2, Vector3 } from 'three'
-
-import vertexShader from '@glsl/partials/common.vert'
-import fragmentShaderLong from '@glsl/clouds/long.frag'
-import fragmentShaderLongBack from '@glsl/clouds/longback.frag'
-import fragmentShaderSmall from '@glsl/clouds/small.frag'
+import { Color, NodeMaterial, Object3D, Vector2, Vector3 } from 'three'
+import { Fn, uniform, float, vec2, vec4, uv, sin, smoothstep, texture } from 'three/tsl'
 import LongCloud from './LongCloud'
 import LoaderManager from '../../managers/LoaderManager'
 import { MathUtils } from 'three'
@@ -57,50 +53,80 @@ export default class Clouds extends Object3D {
 
   _createMaterials() {
     const materials = {}
-    // long Cloud tex 1
+    const w0 = 0.1964825501511404
+    const w1 = 0.2969069646728344
+    const w2 = 0.09447039785044732
+    const w3 = 0.010381362401148057
+    const off1 = 1.411764705882353
+    const off2 = 3.2941176470588234
+    const off3 = 5.176470588235294
 
     // Long
     for (let i = 0; i < ASSETS_LONG.length; i++) {
       const texName = ASSETS_LONG[i]
+      const tex = LoaderManager.getTexture(texName.map)
+      const texW = tex.source?.data?.width ?? 1
+      const texH = tex.source?.data?.height ?? 1
 
-      const texture = LoaderManager.get(texName.map).texture
+      const uLight = uniform(this.#settings.light)
+      const uTime = uniform(0)
+      const uGlobalOpacity = uniform(EnvManager.settings.alphaClouds)
+      const uSmoothBlue = uniform(new Vector2(0.4, 0.75))
+      const uTextureSizeX = uniform(texW)
+      const uTextureSizeY = uniform(texH)
 
-      materials[texName.map] = new ShaderMaterial({
-        vertexShader,
-        fragmentShader: fragmentShaderLong,
-        uniforms: {
-          map: { value: LoaderManager.get(texName.map).texture },
-          light: { value: this.#settings.light },
-          uTime: { value: 0 },
-          globalOpacity: { value: EnvManager.settings.alphaClouds },
-          smoothBlue: { value: new Vector2(0.4, 0.75) },
-          textureSize: { value: new Vector2(texture.source.data.width, texture.source.data.height) },
-        },
-        transparent: true,
-        depthWrite: false,
-        // blending: AdditiveBlending
+      const colorFn = Fn(() => {
+        const uvBase = uv()
+        const uvDistorted = uvBase.add(vec2(float(0.12).mul(sin(uvBase.y.mul(2.0).add(uTime.mul(0.5)))).div(6.0), 0))
+        const res = vec2(uTextureSizeX, uTextureSizeY)
+        const dir = vec2(5.0, 2.0)
+        const o1 = vec2(off1, off1).mul(dir)
+        const o2 = vec2(off2, off2).mul(dir)
+        const o3 = vec2(off3, off3).mul(dir)
+        const t0 = texture(tex, uvDistorted).mul(w0)
+        const t1a = texture(tex, uvDistorted.add(o1.div(res))).mul(w1)
+        const t1b = texture(tex, uvDistorted.sub(o1.div(res))).mul(w1)
+        const t2a = texture(tex, uvDistorted.add(o2.div(res))).mul(w2)
+        const t2b = texture(tex, uvDistorted.sub(o2.div(res))).mul(w2)
+        const t3a = texture(tex, uvDistorted.add(o3.div(res))).mul(w3)
+        const t3b = texture(tex, uvDistorted.sub(o3.div(res))).mul(w3)
+        const texBlur = t0.add(t1a).add(t1b).add(t2a).add(t2b).add(t3a).add(t3b)
+        const alpha = smoothstep(uSmoothBlue.x, uSmoothBlue.y, texBlur.b).mul(0.85)
+        return vec4(texBlur.rgb.add(uLight), alpha.mul(uGlobalOpacity))
       })
+
+      const mat = new NodeMaterial()
+      mat.colorNode = colorFn()
+      mat.transparent = true
+      mat.depthWrite = false
+      mat.uTime = uTime
+      mat.uGlobalOpacity = uGlobalOpacity
+      materials[texName.map] = mat
     }
 
     // Long Back
-
     for (let i = 0; i < ASSETS_BACK.length; i++) {
       const texName = ASSETS_BACK[i]
+      const mapTex = LoaderManager.getTexture(texName.map)
 
-      materials[texName.map] = new ShaderMaterial({
-        vertexShader,
-        fragmentShader: fragmentShaderLongBack,
-        uniforms: {
-          map: { value: LoaderManager.get(texName.map).texture },
-          light: { value: this.#settings.light },
-          uTime: { value: 0 },
-          globalOpacity: { value: EnvManager.settings.alphaClouds },
-          smoothBlue: { value: new Vector2(0, 1) },
-        },
-        transparent: true,
-        depthWrite: false,
-        // blending: AdditiveBlending
+      const uLight = uniform(this.#settings.light)
+      const uTime = uniform(0)
+      const uGlobalOpacity = uniform(EnvManager.settings.alphaClouds)
+
+      const colorFn = Fn(() => {
+        const uvBase = uv()
+        const uvDistorted = uvBase.add(vec2(float(0.12).mul(sin(uvBase.y.mul(2.0).add(uTime.mul(0.5)))).div(6.0), 0))
+        const texSample = texture(mapTex, uvDistorted)
+        return vec4(texSample.rgb.add(uLight), texSample.a.mul(0.9).mul(uGlobalOpacity))
       })
+
+      const mat = new NodeMaterial()
+      mat.colorNode = colorFn()
+      mat.transparent = true
+      mat.depthWrite = false
+      mat.uTime = uTime
+      mat.uGlobalOpacity = uGlobalOpacity
+      materials[texName.map] = mat
     }
 
     return materials
@@ -218,24 +244,28 @@ export default class Clouds extends Object3D {
 
       const speed = randFloat(1, 2) * SCALE_RATIO
 
-      // create material for each
-      // Small
       const texName = ASSETS_SMALL[numTex]
+      const mapTex = LoaderManager.getTexture(texName.map)
 
-      const material = new ShaderMaterial({
-        vertexShader,
-        fragmentShader: fragmentShaderSmall,
-        uniforms: {
-          map: { value: LoaderManager.get(texName.map).texture },
-          light: { value: 0.1 },
-          uTime: { value: 0 },
-          opacity: { value: 1 },
-          globalOpacity: { value: EnvManager.settings.alphaClouds },
-        },
-        transparent: true,
-        depthWrite: false,
-        // blending: AdditiveBlending
+      const uLight = uniform(0.1)
+      const uTime = uniform(0)
+      const uOpacity = uniform(1)
+      const uGlobalOpacity = uniform(EnvManager.settings.alphaClouds)
+
+      const colorFn = Fn(() => {
+        const uvBase = uv()
+        const uvDistorted = uvBase.add(vec2(float(0.12).mul(sin(uvBase.y.mul(2.0).add(uTime.mul(0.5)))).div(6.0), 0))
+        const texSample = texture(mapTex, uvDistorted)
+        return vec4(texSample.rgb.add(uLight), texSample.a.mul(0.9).mul(uOpacity).mul(uGlobalOpacity))
       })
+
+      const material = new NodeMaterial()
+      material.colorNode = colorFn()
+      material.transparent = true
+      material.depthWrite = false
+      material.uTime = uTime
+      material.uOpacity = uOpacity
+      material.uGlobalOpacity = uGlobalOpacity
 
       const cloud = new SmallCloud({
         position: new Vector3(x, y, z),
@@ -273,13 +303,12 @@ export default class Clouds extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     for (let i = 0; i < this.#clouds.length; i++) {
       const cloud = this.#clouds[i]
       cloud.update({ time, delta })
 
-      if (cloud.mainMaterial.uniforms.globalOpacity) {
-        cloud.mainMaterial.uniforms.globalOpacity.value = EnvManager.settings.alphaClouds
+      if (cloud.mainMaterial.uGlobalOpacity) {
+        cloud.mainMaterial.uGlobalOpacity.value = EnvManager.settings.alphaClouds
       }
     }
   }
@@ -292,7 +321,6 @@ export default class Clouds extends Object3D {
   _createDebugFolder() {
     if (!this.#debug) return
 
-    return
 
     const settingsChangedHandler = () => {
       // this.#material.uniforms.color.value = new Color(this.#settings.color)

@@ -45,15 +45,14 @@ export default class SmallCloud extends Object3D {
     const mesh = this.#mesh
     const duration = randFloat(15, 25)
     this.#tlScale.to(mesh.scale, { x: 0, y: 0, duration }, 1)
-    this.#tlScale.to(material.uniforms.opacity, { value: 0, duration }, 1)
+    this.#tlScale.to(material.uOpacity, { value: 0, duration }, 1)
     this.#tlScale.add(() => {
-      // update position
       this.#currentAngle = randFloat(-Math.PI * 2, Math.PI * 2)
-      material.uniforms.opacity.value = 0
+      material.uOpacity.value = 0
       mesh.scale.x = 1
       mesh.scale.y = 1
     })
-    this.#tlScale.to(material.uniforms.opacity, { value: 1, duration: 5 })
+    this.#tlScale.to(material.uOpacity, { value: 1, duration: 5 })
 
     // this._createDebugFolder()
   }
@@ -73,8 +72,7 @@ export default class SmallCloud extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
-    this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.speedTex
+    this.#material.uTime.value += (delta / 16) * this.#settings.speedTex
 
     this.#currentAngle += this.#speed * this.#dir * (delta / 16) * 0.00004
 
