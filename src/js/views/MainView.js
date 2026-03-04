@@ -158,7 +158,7 @@ export default class MainView {
     // components.link = this._createLinkComponent()
     components.ocean = this._createOceanComponent()
     // components.clouds = this._createCloudsComponent()
-    // components.horizon = this._createHorizonComponent()
+    components.horizon = this._createHorizonComponent()
 
     return components
   }

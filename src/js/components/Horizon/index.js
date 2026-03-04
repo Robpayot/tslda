@@ -1,8 +1,6 @@
-import { BackSide, Color, Object3D, ShaderMaterial } from 'three'
+import { BackSide, Color, NodeMaterial, Object3D } from 'three'
+import { Fn, uniform, float, vec3, vec4, uv, mix, pow } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
-
-import vertexShader from '@glsl/partials/common.vert'
-import fragmentShader from '@glsl/horizon/main.frag'
 import EnvManager from '../../managers/EnvManager'
 
 export default class Horizon extends Object3D {
@@ -18,7 +16,6 @@ export default class Horizon extends Object3D {
   constructor({ debug }) {
     super()
 
-    return
 
     this.#debug = debug
 
@@ -29,18 +26,19 @@ export default class Horizon extends Object3D {
   }
 
   _createMaterial() {
-    this.#material = new ShaderMaterial({
-      uniforms: {
-        color1: { value: new Color(this.#settings.color1) },
-        color2: { value: new Color(this.#settings.color2) },
-      },
-      fragmentShader,
-      vertexShader,
-      side: BackSide,
-      // transparent: true,
-      // depthWrite: false,
-      depthTest: false,
+    this.uColor1 = uniform(new Color(this.#settings.color1))
+    this.uColor2 = uniform(new Color(this.#settings.color2))
+
+    const colorFn = Fn(() => {
+      const power = pow(float(1).sub(uv().x), 4.0)
+      const color = mix(vec3(this.uColor1), vec3(this.uColor2), power)
+      return vec4(color, 1.0)
     })
+
+    this.#material = new NodeMaterial()
+    this.#material.colorNode = colorFn()
+    this.#material.side = BackSide
+    this.#material.depthTest = false
   }
 
   _createMesh() {
@@ -73,11 +71,8 @@ export default class Horizon extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    return
-    // this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.speedTex
-
-    this.#material.uniforms.color1.value = new Color(EnvManager.settings.sky)
-    this.#material.uniforms.color2.value = new Color(EnvManager.settings.sky2)
+    this.uColor1.value = new Color(EnvManager.settings.sky)
+    this.uColor2.value = new Color(EnvManager.settings.sky2)
   }
 
   resize({ width, height }) {}
