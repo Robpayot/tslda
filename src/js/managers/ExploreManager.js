@@ -135,10 +135,9 @@ class ExploreManager {
 
   init(scene, camera) {
 
-    return
     this.camera = camera
     this.#parent = new Object3D()
-    // scene.add(this.#parent)
+    scene.add(this.#parent)
 
     // environement
     this.#winds = []
@@ -148,6 +147,9 @@ class ExploreManager {
       this.#parent.add(wind.mesh)
       this.#winds.push(wind)
     }
+
+    return
+
 
     this.#waves = new Waves()
     this.#parent.add(this.#waves.mesh)
@@ -193,7 +195,6 @@ class ExploreManager {
   }
 
   start = () => {
-    return
     this.#parent.visible = true
 
     for (let i = 0; i < NB_WINDS; i++) {
@@ -201,6 +202,9 @@ class ExploreManager {
         this.#winds[i].anim()
       }, 1000 * i)
     }
+
+    return
+
 
     // prevent double event listened
     if (this.subHit && typeof this.subHit.unsubscribe === 'function') {

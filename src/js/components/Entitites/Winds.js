@@ -1,10 +1,9 @@
 import { BufferAttribute, DoubleSide } from 'three'
-import { ShaderMaterial } from 'three'
+import { NodeMaterial } from 'three/webgpu'
 import { BufferGeometry } from 'three'
 import { Vector3 } from 'three'
 
-import vertexShader from '@glsl/wind/wind.vert'
-import fragmentShader from '@glsl/wind/wind.frag'
+import { Fn, float, vec3, vec4, uniform, uv, abs, smoothstep, mod } from 'three/tsl'
 import { Mesh } from 'three'
 import { MathUtils } from 'three'
 const { degToRad, randInt } = MathUtils
@@ -138,16 +137,38 @@ export default class Winds {
   }
 
   _createMaterial() {
-    const material = new ShaderMaterial({
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-      side: DoubleSide,
-      transparent: true,
-      depthTest: false,
-      uniforms: {
-        uTime: { value: 0 },
-      },
+    const uTime = uniform(0)
+
+    const colorFn = Fn(() => {
+      const uvBase = uv()
+      const len = float(0.5)
+      const falloff = float(0.1)
+      const p = mod(uTime.mul(0.25), 2.0)
+
+      const xDiff = uvBase.x.sub(p).add(0.5)
+      let alpha = smoothstep(len, len.sub(falloff), abs(xDiff))
+
+      const width = smoothstep(len.mul(2.0), float(0.0), abs(xDiff)).mul(0.5)
+      alpha = alpha.mul(smoothstep(width, width.sub(0.3), abs(uvBase.y.sub(0.5))))
+
+      alpha = alpha.mul(smoothstep(float(0.5), float(0.3), abs(p.mul(0.5).sub(0.5)).mul(float(1.0).add(len))))
+
+      const sides = abs(uvBase.x.mul(2.0).sub(1.0))
+      alpha = alpha.mul(
+        smoothstep(sides, float(0.8), float(1.0)).mul(
+          float(1.0).sub(abs(uvBase.y.mul(2.0).sub(1.0)).mul(7.0).mul(sides))
+        )
+      )
+
+      return vec4(vec3(1.0), alpha)
     })
+
+    const material = new NodeMaterial()
+    material.colorNode = colorFn()
+    material.side = DoubleSide
+    material.transparent = true
+    material.depthTest = false
+    material.uTime = uTime
 
     return material
   }
@@ -187,7 +208,7 @@ export default class Winds {
       this.#mesh.position.z = randInt(0, 30)
     })
     this.tl.fromTo(
-      this.material.uniforms.uTime,
+      this.material.uTime,
       {
         value: 0,
       },
