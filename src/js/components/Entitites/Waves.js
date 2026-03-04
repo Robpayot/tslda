@@ -13,11 +13,14 @@ import {
   uniform,
   float,
   vec2,
+  vec3,
   vec4,
   sin,
   texture,
   uv,
   instanceIndex,
+  positionLocal,
+  positionWorld,
   If,
   Discard,
 } from 'three/tsl'
@@ -28,14 +31,14 @@ import { gsap } from 'gsap'
 import GridManager from '../../managers/GridManager'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import EnvManager from '../../managers/EnvManager'
-// import OceanHeightMap from '../Ocean/OceanHeightMap' // RenderTarget: uncomment when heightmap in vertex is supported
+import OceanHeightMap from '../Ocean/OceanHeightMap'
 
 const NB_POINTS = 300
 const RANGE = 1200
 const SPRITE_SCALE = 7
 
 // Set to true to force bright red quads (no texture/discard) to verify waves are in the scene
-const WAVES_DEBUG_VISIBLE = true
+const WAVES_DEBUG_VISIBLE = false
 
 export default class Waves {
   #geo
@@ -47,7 +50,7 @@ export default class Waves {
 
     this.tlReset = new gsap.timeline({ repeat: -1, repeatDelay: 5 })
     this.tlReset.to(this.material.uOpacity, {
-      value: 0,
+      value: 1,
       duration: 0.8,
     })
     this.tlReset.add(() => {
@@ -80,6 +83,36 @@ export default class Waves {
     const uRatioTexture = uniform(textureH / textureW)
     const uOpacity = uniform(1)
     const uGlobalOpacity = uniform(EnvManager.settingsOcean.alphaWaves)
+    const uScaleOcean = uniform(SCALE_OCEAN)
+
+    const heightMapTexture = OceanHeightMap.heightMap?.texture ?? LoaderManager.defaultTexture
+
+    // Heightmap-based Y displacement (same logic as original waves.vert: sample at world pos, 5-tap avg, displace Y)
+    const positionNodeFn = Fn(() => {
+      const uvGrid = vec2(
+        float(0.5).add(positionWorld.x.div(uScaleOcean)),
+        float(0.5).sub(positionWorld.z.div(uScaleOcean))
+      )
+      const offset = float(0.01)
+      const heightMapPos = texture(heightMapTexture, uvGrid)
+      const heightMapPos1A = texture(heightMapTexture, vec2(uvGrid.x.add(offset), uvGrid.y))
+      const heightMapPos1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(offset)))
+      const heightMapPos2A = texture(heightMapTexture, vec2(uvGrid.x.sub(offset), uvGrid.y))
+      const heightMapPos2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(offset)))
+      const avgH = heightMapPos.r
+        .add(heightMapPos1A.r)
+        .add(heightMapPos1B.r)
+        .add(heightMapPos2A.r)
+        .add(heightMapPos2B.r)
+        .div(5.0)
+      const displacementY = avgH
+        .sub(0.5)
+        .mul(2.0)
+        .mul(heightMapPos.b.mul(100.0))
+        .mul(2.0)
+        .mul(0.01)
+      return positionLocal.add(vec3(float(0), displacementY, float(0)))
+    })
 
     // Per-instance phase from instanceIndex (no custom InstancedBufferAttribute in shader - more reliable in WebGPU)
     const offsetNode = float(instanceIndex).mul(0.33)
@@ -108,11 +141,12 @@ export default class Waves {
         Discard()
       })
 
-      const finalAlpha = tex.a.mul(alpha).mul(uOpacity).mul(uGlobalOpacity)
+      const finalAlpha = tex.a.mul(alpha).mul(uOpacity).mul(1)
       return vec4(tex.rgb, finalAlpha)
     })
 
     const material = new NodeMaterial()
+    material.positionNode = positionNodeFn()
     material.colorNode = colorFn()
     material.side = DoubleSide
     material.transparent = true
