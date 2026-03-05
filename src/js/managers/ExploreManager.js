@@ -558,7 +558,7 @@ class ExploreManager {
 
     // waves
     if (EnvManager.settingsOcean.alphaWaves > 0) {
-      sortInstancedMesh(this.#waves.mesh, this.camera)
+      this.#waves.billboardToCamera(this.camera)
       this.#waves.material.uTime.value += (delta / 16) * 0.1
       this.#waves.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaWaves
 
