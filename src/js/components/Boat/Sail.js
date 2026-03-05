@@ -18,9 +18,10 @@ export default class Sail {
     this.#material = createSailMaterial(mapTexture)
     this.#mesh.material = this.#material
     this.#mesh.castCustomShadow = true
-    this.#mesh.renderOrder = 25
+    // WebGPU batches differently than WebGL; higher renderOrder ensures sail draws after ocean/clouds
+    this.#mesh.renderOrder = 50
 
-    this.mesh.scale.x = 0.1
+    this.#mesh.scale.x = 0.1
   }
 
   get mesh() {

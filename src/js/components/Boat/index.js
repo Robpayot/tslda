@@ -71,6 +71,8 @@ export default class Boat {
     this.#scene = scene
     this.#gltf = gltf
     this.#object = new Object3D()
+    // WebGPU: ensure boat (including sail) renders after ocean/clouds for correct transparency
+    this.#object.renderOrder = 10
 
     this.#mesh = this._createMesh()
     this._createMaterials()

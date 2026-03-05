@@ -42,6 +42,7 @@ export function createSailMaterial(mapTexture) {
     return vec3(pos.x, pos.y.add(noise), pos.z.add(noise))
   })
 
+  // Match sail.frag: texture, toon shade RGB, alpha *= 0.96
   const colorFn = Fn(() => {
     const tex = texture(mapTexture, uv())
     const sunDirWorld = normalize(uSunDir.sub(positionWorld))
@@ -52,15 +53,14 @@ export function createSailMaterial(mapTexture) {
       .mul(uCoefShadow)
       .add(uAmbientColor.r.mul(2))
     const shaded = vec3(toonShading, toonShading, toonShading)
-    return vec4(tex.rgb.mul(shaded), tex.a.mul(0.96))
+    return vec4(tex.rgb.mul(shaded), 1.0)
   })
 
   const material = new NodeMaterial()
   material.name = 'toon'
+  material.map = mapTexture
   material.positionNode = positionFn()
   material.colorNode = colorFn()
-  material.transparent = true
-  material.depthWrite = false
   material.side = DoubleSide
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
