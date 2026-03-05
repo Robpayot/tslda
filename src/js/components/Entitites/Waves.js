@@ -100,19 +100,20 @@ export default class Waves {
     const vProgress = varying(sin(uTime.mul(0.1).mul(speedVal).add(offsetVal)), 'vProgress')
     const vProgressAlpha = varying(sin(uTime.mul(0.1).add(offsetVal)), 'vProgressAlpha')
 
-    // Vertex: sample OceanHeightMap texture at world X,Z to get live Y displacement
+    // Vertex: sample OceanHeightMap texture at instance CENTER world X,Z to get live Y displacement
     const positionNodeFn = Fn(() => {
       const pos = positionLocal
-      // World position via instance + mesh matrix (before this node modifies it)
-      const wPos = modelWorldMatrix.mul(vec4(pos, 1.0))
+      // Instance center in world space (origin through the full model+instance matrix)
+      // Original GLSL sampled at `position` (point center), NOT per-vertex corners
+      const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
 
-      // Map world X,Z → heightmap UV (same as original GLSL)
+      // Map world X,Z → heightmap UV (exactly like original GLSL)
       const uvGrid = vec2(
-        float(0.5).add(wPos.x.div(uScaleOcean)),
-        float(0.5).sub(wPos.z.div(uScaleOcean)),
+        float(0.5).add(wCenter.x.div(uScaleOcean)),
+        float(0.5).sub(wCenter.z.div(uScaleOcean)),
       )
 
-      // 5-tap cross average to reduce flicker (same as original)
+      // 5-tap cross average to reduce flicker (same cross pattern as original)
       const off = float(0.01)
       const hmC  = texture(heightMapTex, uvGrid)
       const hm1A = texture(heightMapTex, vec2(uvGrid.x.add(off), uvGrid.y))
@@ -122,11 +123,12 @@ export default class Waves {
 
       const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
 
-      // Original GLSL: gl_Position.y += (avgH - 0.5) * 2 * (B * 100) * 2
-      // B channel = uYStrength / 100, so (B*100) = uYStrength
-      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0)).mul(2.0)
+      // Original GLSL did: gl_Position.y += (avgH - 0.5) * 2 * (B * 100) * 2  (clip space)
+      // The trailing *2 was a clip-space scaling factor (gets divided by w in perspective).
+      // In world space we only need: (avgH - 0.5) * 2 * yStrength = depth (actual wave height)
+      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
 
-      // disp is world-space Y; transform to instance-local space
+      // Transform world-Y displacement to instance-local space
       // (billboard rotation means local Y ≠ world Y)
       const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
       const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
