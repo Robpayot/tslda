@@ -441,6 +441,15 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 
     normalGeometry   normalLocal   normalView   normalWorld
 
+**⚠️ SkinnedMesh + NodeMaterial: `normalWorld` and `normalView` can be wrong** (flat/white lighting). Use `normalLocal` and transform the light direction to model space instead:
+
+    // Sun/light direction with SkinnedMesh – use normalLocal + modelWorldMatrixInverse
+    const sunDirWorld = normalize(uSunDir.sub(positionWorld))
+    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz)
+    const shadow = dot(normalLocal, sunDirLocal)
+
+Pass `uSunDir` as `uniform(light.position)` (reference, not clone) so updates are reflected.
+
 ### Camera
 
     cameraPosition  cameraNear  cameraFar
