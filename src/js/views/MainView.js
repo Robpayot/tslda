@@ -184,7 +184,7 @@ export default class MainView {
 
     this.#scene.add(component.object)
 
-    // component.initSubObjects()
+    component.initSubObjects()
 
     return component
   }

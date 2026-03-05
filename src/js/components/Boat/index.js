@@ -97,21 +97,21 @@ export default class Boat {
   initSubObjects() {
     // fix issue objects no appearing
     this.#sailMesh = this._createSailMesh()
-    this.#splashMeshes = this._createSplashMeshes()
-    this.#particleSideMesh = this._createParticlesSideMesh()
-    this.#particlesFrontMesh = this._createParticlesFrontMesh()
-    this.#particlesJumpMesh = this._createParticlesJumpMesh()
-    this.#craneMesh = this._createCraneMesh()
+    // this.#splashMeshes = this._createSplashMeshes()
+    // this.#particleSideMesh = this._createParticlesSideMesh()
+    // this.#particlesFrontMesh = this._createParticlesFrontMesh()
+    // this.#particlesJumpMesh = this._createParticlesJumpMesh()
+    // this.#craneMesh = this._createCraneMesh()
 
-    this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
+    // this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
 
-    // events
-    EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
-    EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
-    EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
-    EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
-    EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
-    EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
+    // // events
+    // EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
+    // EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
+    // EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
+    // EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
+    // EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
+    // EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
 
     const s = 0.25
     this.sailMesh.mesh.scale.set(s, this.sailMesh.mesh.scale.y, this.sailMesh.mesh.scale.z)
@@ -321,14 +321,15 @@ export default class Boat {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     this.#object.rotation.y = this.#initRotaY + ControllerManager.boat.angleDir
 
     this.#mesh.rotation.z =
       this.#initRotaZ + Math.sin(time + this.rotaZ) * (0.1 + ControllerManager.boat.turnForce * 0.5)
     this.#mesh.rotation.x = this.#initRotaX + Math.sin(time) * Math.min(ControllerManager.boat.velocity * 6, 0.2)
 
+
     this.#sailMesh?.update({ time, delta })
+
     this.#splashMeshes?.update({ time, delta })
     this.#craneMesh?.update({ time, delta })
 
@@ -340,44 +341,44 @@ export default class Boat {
 
     // if (absTurnForce > 0) {
 
-    if (ControllerManager.stopped) {
-      this.#particleSideMesh.mesh.visible = false
-      this.#particlesFrontMesh.mesh.visible = false
-      this.#particlesJumpMesh.mesh.visible = false
-      this.canShowP = false
-    } else {
-      let progessP = ControllerManager.boat.velocityP
-      this.#particleSideMesh?.update({
-        time,
-        delta,
-        turnForce: this.#absTurnForce,
-        velocity: ControllerManager.boat.velocity * 100,
-      })
+    // if (ControllerManager.stopped) {
+    //   this.#particleSideMesh.mesh.visible = false
+    //   this.#particlesFrontMesh.mesh.visible = false
+    //   this.#particlesJumpMesh.mesh.visible = false
+    //   this.canShowP = false
+    // } else {
+    //   let progessP = ControllerManager.boat.velocityP
+    //   this.#particleSideMesh?.update({
+    //     time,
+    //     delta,
+    //     turnForce: this.#absTurnForce,
+    //     velocity: ControllerManager.boat.velocity * 100,
+    //   })
 
-      this.#particlesFrontMesh?.update({
-        time,
-        delta,
-        velocity: progessP,
-      })
+    //   this.#particlesFrontMesh?.update({
+    //     time,
+    //     delta,
+    //     velocity: progessP,
+    //   })
 
-      this.#particlesJumpMesh?.update({
-        time,
-        delta,
-        velocity: progessP,
-      })
+    //   this.#particlesJumpMesh?.update({
+    //     time,
+    //     delta,
+    //     velocity: progessP,
+    //   })
 
-      if (!this.canShowP) {
-        this.canShowP = true
+    //   if (!this.canShowP) {
+    //     this.canShowP = true
 
-        setTimeout(() => {
-          if (this.#particleSideMesh) {
-            this.#particleSideMesh.mesh.visible = true
-            this.#particlesFrontMesh.mesh.visible = true
-            this.#particlesJumpMesh.mesh.visible = true
-          }
-        }, 500)
-      }
-    }
+    //     setTimeout(() => {
+    //       if (this.#particleSideMesh) {
+    //         this.#particleSideMesh.mesh.visible = true
+    //         this.#particlesFrontMesh.mesh.visible = true
+    //         this.#particlesJumpMesh.mesh.visible = true
+    //       }
+    //     }, 500)
+    //   }
+    // }
 
     // }
 
@@ -403,16 +404,16 @@ export default class Boat {
     }
     // this.sailMesh.scale.x = ControllerManager.boat.velocityP * -this.mastDir
 
-    // Treasures
-    for (let i = 0; i < this.#rupees.length; i++) {
-      const rupee = this.#rupees[i]
-      rupee.rotation.y += (delta / 16) * 0.02
-    }
+    // // Treasures
+    // for (let i = 0; i < this.#rupees.length; i++) {
+    //   const rupee = this.#rupees[i]
+    //   rupee.rotation.y += (delta / 16) * 0.02
+    // }
 
-    for (let i = 0; i < this.#triforceShards.length; i++) {
-      const shard = this.#triforceShards[i]
-      shard.rotation.z += (delta / 16) * 0.02
-    }
+    // for (let i = 0; i < this.#triforceShards.length; i++) {
+    //   const shard = this.#triforceShards[i]
+    //   shard.rotation.z += (delta / 16) * 0.02
+    // }
   }
 
   resize({ width, height }) {}

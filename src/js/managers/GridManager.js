@@ -35,7 +35,6 @@ class GridManager {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     if (ModeManager.state === MODE.GAME_STARTED && GameManager.paused) {
       return
     }
