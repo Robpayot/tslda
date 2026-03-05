@@ -1,6 +1,6 @@
-import ControllerManager from '../../managers/ControllerManager'
-import EnvManager from '../../managers/EnvManager'
-import LoaderManager from '../../managers/LoaderManager'
+import ControllerManager from '../../../managers/ControllerManager'
+import EnvManager from '../../../managers/EnvManager'
+import LoaderManager from '../../../managers/LoaderManager'
 import { createSailMaterial } from './SailMaterials'
 
 export default class Sail {

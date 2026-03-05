@@ -49,6 +49,26 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 
 - To avoid this error: "THREE.TSL: NodeError: THREE.TSL: `texture( value )` function expects a valid instance of THREE.Texture()." Please pass textures in uniform().
 
+### Component + Material folder structure
+
+When a component has its own TSL material in a separate file, use a dedicated folder named after the component:
+
+    Boat/
+    ├── index.js
+    ├── BoatMaterials.js          # shared boat materials
+    ├── sail/
+    │   ├── Sail.js               # component logic
+    │   └── SailMaterials.js      # TSL sail material
+    ├── splashes/
+    │   ├── Splashes.js           # component logic
+    │   └── SplashMaterials.js    # TSL splash material
+    └── ...
+
+- **Folder name**: lowercase, singular (e.g. `sail`, `splashes`)
+- **Component file**: PascalCase (e.g. `Sail.js`, `Splashes.js`)
+- **Material file**: `*Materials.js` (e.g. `SailMaterials.js`, `SplashMaterials.js`)
+- Import from parent: `import Sail from './sail/Sail'`
+
 ## Imports
 
 ### NPM (Preferred)

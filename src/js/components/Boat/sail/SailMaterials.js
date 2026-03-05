@@ -16,9 +16,9 @@ import {
   dot,
   normalize,
 } from 'three/tsl'
-import { pnoise } from '../../utils/pnoise.tsl.js'
+import { pnoise } from '../../../utils/pnoise.tsl.js'
 import { Color, DoubleSide, Vector3 } from 'three'
-import EnvManager from '../../managers/EnvManager'
+import EnvManager from '../../../managers/EnvManager'
 
 /**
  * Creates a TSL sail material with toon shading and wind effect.

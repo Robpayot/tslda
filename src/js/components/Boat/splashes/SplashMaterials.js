@@ -15,9 +15,9 @@ import {
   select,
 } from 'three/tsl'
 import { Color, DoubleSide } from 'three'
-import EnvManager from '../../managers/EnvManager'
-import LoaderManager from '../../managers/LoaderManager'
-import Settings from '../../utils/Settings'
+import EnvManager from '../../../managers/EnvManager'
+import LoaderManager from '../../../managers/LoaderManager'
+import Settings from '../../../utils/Settings'
 
 const BIT_SHIFT = vec4(
   1.0 / (256.0 * 256.0 * 256.0),

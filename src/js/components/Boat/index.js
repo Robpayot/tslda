@@ -5,9 +5,9 @@ import ControllerManager from '../../managers/ControllerManager'
 import UIManager from '../../managers/UIManager'
 import { gsap } from 'gsap'
 
-import Splashes from './Splashes'
+import Splashes from './splashes/Splashes'
 import ParticlesSide from './ParticlesSide'
-import Sail from './Sail'
+import Sail from './sail/Sail'
 import ParticlesFront from './ParticlesFront'
 import ParticlesJump from './ParticlesJump'
 

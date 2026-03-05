@@ -1,8 +1,8 @@
 import { Color } from 'three'
-import ControllerManager from '../../managers/ControllerManager'
+import ControllerManager from '../../../managers/ControllerManager'
 import { gsap } from 'gsap'
-import EnvManager from '../../managers/EnvManager'
-import { BOAT_MODE } from '.'
+import EnvManager from '../../../managers/EnvManager'
+import { BOAT_MODE } from '..'
 import { createSplashMaterial } from './SplashMaterials'
 
 const SCALE_INCR = 0.1
