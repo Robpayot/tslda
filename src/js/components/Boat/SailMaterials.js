@@ -3,6 +3,7 @@ import {
   Fn,
   uniform,
   float,
+  vec2,
   vec3,
   vec4,
   uv,
@@ -14,10 +15,9 @@ import {
   smoothstep,
   dot,
   normalize,
-  sin,
-  cos,
 } from 'three/tsl'
-import { Color, Vector3 } from 'three'
+import { pnoise } from '../../utils/pnoise.tsl.js'
+import { Color, DoubleSide, Vector3 } from 'three'
 import EnvManager from '../../managers/EnvManager'
 
 /**
@@ -34,14 +34,12 @@ export function createSailMaterial(mapTexture) {
 
   const positionFn = Fn(() => {
     const pos = positionLocal.toVar()
+    const P = vec2(uTime, uTime)
+    const rep = vec2(pos.y, 1.0)
+    const noiseVal = pnoise(P, rep)
     const windScale = float(7).mul(float(1).add(uVelocity.mul(0.1)))
-    const windNoise = sin(uTime.add(pos.y.mul(0.5)))
-      .add(sin(uTime.mul(1.3).add(pos.y.mul(0.8))))
-      .add(cos(uTime.mul(0.7).add(pos.y.mul(0.3))))
-    const noise = windNoise.mul(windScale)
-    pos.y.addAssign(noise)
-    pos.z.addAssign(noise)
-    return pos
+    const noise = noiseVal.mul(windScale)
+    return vec3(pos.x, pos.y.add(noise), pos.z.add(noise))
   })
 
   const colorFn = Fn(() => {
@@ -63,6 +61,7 @@ export function createSailMaterial(mapTexture) {
   material.colorNode = colorFn()
   material.transparent = true
   material.depthWrite = false
+  material.side = DoubleSide
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow

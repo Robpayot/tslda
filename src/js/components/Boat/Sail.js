@@ -18,6 +18,7 @@ export default class Sail {
     this.#material = createSailMaterial(mapTexture)
     this.#mesh.material = this.#material
     this.#mesh.castCustomShadow = true
+    this.#mesh.renderOrder = 25
 
     this.mesh.scale.x = 0.1
   }
