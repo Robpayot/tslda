@@ -807,6 +807,157 @@ When compute shader output needs to be rendered (e.g., simulations, procedural g
 
 ---
 
+## OceanHeightMap — Synchronizing Elements with the Ocean Surface
+
+The project uses a render-to-texture heightmap (`OceanHeightMap`) to encode the live ocean surface height. Any element that needs to follow the ocean (waves, foam, floating objects, etc.) should sample this texture in its vertex shader.
+
+### How the HeightMap Works
+
+- An orthographic camera renders a `PlaneGeometry(1, 1, 200, 200)` scaled to `SCALE_OCEAN` (3000) in the XY plane.
+- The vertex shader computes a wave `depth` from a sum-of-sines surface function and encodes it into varyings.
+- The fragment shader writes to a `WebGLRenderTarget`:
+  - **R** = `(depth + yStrength) / (2 * yStrength)` — normalized height [0,1]
+  - **G** = same as R (average, for future use)
+  - **B** = `yStrength / 100` — strength scaling factor
+  - **A** = 1.0
+
+### Uniforms Updated Each Frame (from Ocean `update()`)
+
+    OceanHeightMap.uTimeWave.value  = this.uTimeWave.value
+    OceanHeightMap.uDirTex.value    = GridManager.offsetUV
+    OceanHeightMap.uYScale.value    = yScale
+    OceanHeightMap.uYStrength.value = yStrength
+
+### Sampling the HeightMap in a TSL positionNode
+
+#### 1. Get the heightmap texture reference (at build time)
+
+    import OceanHeightMap from '../Ocean/OceanHeightMap'
+    const heightMapTex = OceanHeightMap.heightMap?.texture  // THREE.Texture from WebGLRenderTarget
+
+#### 2. Map world X,Z to heightmap UV
+
+The heightmap covers `[-SCALE_OCEAN/2, SCALE_OCEAN/2]` in world X and Z.
+
+    // For a regular Mesh or Points:
+    const wPos = modelWorldMatrix.mul(vec4(positionLocal, 1.0))
+
+    // For an InstancedMesh — sample at instance CENTER, NOT per-vertex:
+    const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
+
+    const uScaleOcean = uniform(SCALE_OCEAN)
+    const uvGrid = vec2(
+      float(0.5).add(wCenter.x.div(uScaleOcean)),
+      float(0.5).sub(wCenter.z.div(uScaleOcean)),
+    )
+
+**CRITICAL for InstancedMesh**: Use `vec4(0,0,0,1)` (instance origin) as the sampling point. Using `positionLocal` would sample at each vertex corner (±0.5 after scale), causing the quad to warp instead of displacing uniformly. The original GLSL `Points` shader used `position` which was the point center — `vec4(0,0,0,1)` is the equivalent for instanced geometry.
+
+#### 3. 5-tap cross average (reduces flicker)
+
+    const off = float(0.01)
+    const hmC  = texture(heightMapTex, uvGrid)
+    const hm1A = texture(heightMapTex, vec2(uvGrid.x.add(off), uvGrid.y))
+    const hm1B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.add(off)))
+    const hm2A = texture(heightMapTex, vec2(uvGrid.x.sub(off), uvGrid.y))
+    const hm2B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.sub(off)))
+    const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+
+#### 4. Compute world-space Y displacement
+
+    // Decode: (avgH - 0.5) * 2 * yStrength = depth (actual wave height)
+    // B channel * 100 recovers yStrength
+    const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+
+> **Note**: The original GLSL `waves.vert` used `(avgH - 0.5) * 2 * (B*100) * 2` because it applied the displacement in **clip space** (`gl_Position.y +=`), where the trailing `*2` gets naturally attenuated by perspective divide. In world space, omit the trailing `*2`.
+
+#### 5. Apply displacement
+
+**For a standard Mesh** (local Y ≈ world Y):
+
+    const pos = positionLocal.toVar()
+    pos.y.addAssign(disp)
+    return pos
+
+**For a billboarded InstancedMesh** (local Y ≠ world Y due to billboard rotation):
+
+    // Transform world-Y displacement to instance-local space
+    const worldDispVec = vec4(0.0, disp, 0.0, 0.0)  // w=0 for direction
+    const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+    return positionLocal.add(localDisp.xyz)
+
+Required imports for this pattern:
+
+    import { positionLocal, modelWorldMatrix, modelWorldMatrixInverse } from 'three/tsl'
+
+### Complete positionNode Example (InstancedMesh with Billboard)
+
+    const positionNodeFn = Fn(() => {
+      const pos = positionLocal
+      const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
+
+      const uvGrid = vec2(
+        float(0.5).add(wCenter.x.div(uScaleOcean)),
+        float(0.5).sub(wCenter.z.div(uScaleOcean)),
+      )
+
+      const off = float(0.01)
+      const hmC  = texture(heightMapTex, uvGrid)
+      const hm1A = texture(heightMapTex, vec2(uvGrid.x.add(off), uvGrid.y))
+      const hm1B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.add(off)))
+      const hm2A = texture(heightMapTex, vec2(uvGrid.x.sub(off), uvGrid.y))
+      const hm2B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.sub(off)))
+
+      const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+
+      const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
+      const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+      return pos.add(localDisp.xyz)
+    })
+
+    material.positionNode = positionNodeFn()
+
+### Points → InstancedMesh Migration Notes
+
+WebGPU does not support `gl_PointCoord` or variable `gl_PointSize` like WebGL. When converting `Points`-based effects:
+
+1. Replace `Points` with `InstancedMesh` using `PlaneGeometry(1, 1)`.
+2. Replace `gl_PointCoord` with `uv()`.
+3. Use `instanceIndex` for per-instance variation instead of custom attributes (more reliable in WebGPU). Use `hash(instanceIndex)` for pseudo-random per-instance values.
+4. Billboard rotation must be done on CPU (update instance matrices each frame with `lookAt` toward camera).
+5. When billboarding on CPU, UV Y may need flipping: `float(1).sub(uv().y)`.
+6. For transparent instances, sort back-to-front by camera depth each frame.
+
+### Converting `gl_PointSize` to World-Space Scale
+
+The original `gl_PointSize` formula gives a pixel size that shrinks with distance:
+
+    gl_PointSize = uSize * (perspectiveFactor / -mvPosition.z)
+
+For `InstancedMesh`, the quad scale is in **world units** and perspective is handled by the camera projection. Both `gl_PointSize` and world-space objects scale as `1/distance`, so the conversion is a constant factor.
+
+**Formula:**
+
+    SPRITE_SCALE = uSize * perspectiveFactor * 2 * tan(fov / 2) / screenHeight
+
+Since `fov` and `screenHeight` are runtime values, derive the conversion factor `C` from one known-good conversion and apply to others:
+
+    C = knownWorldScale / (knownUSize * knownPerspectiveFactor)
+    newWorldScale = newUSize * newPerspectiveFactor * C
+
+**This project's reference** (FOV = 50°):
+
+| Component  | Original `uSize` | Perspective factor | K = uSize × factor | World scale (`SPRITE_SCALE`) |
+|------------|-------------------|--------------------|---------------------|-------------------------------|
+| Waves      | 450               | 100                | 45,000              | 15                            |
+| Lightnings | 1000              | 400                | 400,000             | 133                           |
+| Stars      | 50                | 100                | 5,000               | ~2                            |
+
+    C = 15 / 45000 = 1/3000  →  SPRITE_SCALE = K / 3000
+
+---
+
 ## GLSL → TSL Migration
 
 | GLSL | TSL |

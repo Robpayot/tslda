@@ -1,4 +1,4 @@
-import { Matrix4, PlaneGeometry, InstancedMesh, DoubleSide, Vector3 } from 'three'
+import { Matrix4, PlaneGeometry, InstancedMesh, DoubleSide, Vector3, Quaternion } from 'three'
 import { NodeMaterial } from 'three/webgpu'
 import {
   Fn,
@@ -11,6 +11,7 @@ import {
   instanceIndex,
   smoothstep,
   select,
+  hash,
 } from 'three/tsl'
 import LoaderManager from '../../managers/LoaderManager'
 import { MathUtils } from 'three'
@@ -23,11 +24,21 @@ import EnvManager from '../../managers/EnvManager'
 const NB_POINTS = 10
 const RANGE_MAX = 3000
 const RANGE_MIN = 2500
-const SPRITE_SCALE = 40
+// Original gl_PointSize = 1000 * (400 / -mvPosition.z), K = 400000
+// Conversion factor C = 1/3000 (derived from Waves: uSize=450, factor=100, worldScale=15)
+const SPRITE_SCALE = 133
+
+const _scale = new Vector3(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE)
+const _mat4 = new Matrix4()
+const _pos = new Vector3()
+const _quat = new Quaternion()
+const _camPos = new Vector3()
+const _up = new Vector3(0, 1, 0)
 
 export default class Lightnings {
   #mesh
   #material
+  #positions = []
   constructor() {
     this.#material = this._createMaterial()
     this.#mesh = this._createMesh()
@@ -70,23 +81,25 @@ export default class Lightnings {
 
     const colorFn = Fn(() => {
       const uvBase = uv()
+      const flippedY = float(1).sub(uvBase.y)
 
-      // Per-instance values from instanceIndex (replaces per-vertex attributes)
+      // Per-instance pseudo-random values matching original attribute ranges
       const idx = float(instanceIndex)
-      const offsetVal = idx.mul(10.0)
-      const scaleVal = idx.mul(0.04)
+      const offsetVal = hash(idx).mul(100.0)                       // [0, 100] like randFloat(0, 100)
+      const speedVal = hash(idx.add(100.0)).mul(0.5).add(1.0)     // [1, 1.5] like randFloat(1, 1.5)
+      const scaleVal = hash(idx.add(200.0)).mul(0.5)              // [0, 0.5] like randFloat(0, 0.5)
 
-      // vProgressAlpha equivalent: sin(uTime * 0.2 + offset) * 2
-      const progressAlpha = idx.mul(10.0).add(uTime.mul(0.2)).sin().mul(2.0)
+      // Original: vProgressAlpha = sin(uTime * 0.2 + offset) * 2
+      const progressAlpha = uTime.mul(0.2).mul(speedVal).add(offsetVal).sin().mul(2.0)
       const alpha = float(1).sub(progressAlpha)
 
       const ratioUV = uRatioTexture
 
-      // UV manipulation matching original GLSL
-      const uvY = uvBase.y.mul(float(1).sub(scaleVal))
+      // Original: uv.y *= (1. - vScale);  uv.x *= ratioUV;
+      const uvY = flippedY.mul(float(1).sub(scaleVal))
       const uvX = uvBase.x.mul(ratioUV)
 
-      // Mirror X if offset > 50 (half the instances get flipped)
+      // Mirror X if offset > 50 (roughly half the instances)
       const flipped = select(offsetVal.greaterThan(50.0), ratioUV.sub(uvX), uvX)
       const uvSampler = vec2(flipped, uvY)
 
@@ -115,11 +128,27 @@ export default class Lightnings {
     return material
   }
 
+  billboardToCamera(camera) {
+    camera.getWorldPosition(_camPos)
+    const mesh = this.#mesh
+    const meshPos = mesh.position
+    const camLocal = _camPos.sub(meshPos)
+
+    for (let i = 0; i < NB_POINTS; i++) {
+      _pos.set(this.#positions[i * 3], this.#positions[i * 3 + 1], this.#positions[i * 3 + 2])
+
+      _mat4.lookAt(camLocal, _pos, _up)
+      _quat.setFromRotationMatrix(_mat4)
+      _mat4.compose(_pos, _quat, _scale)
+      mesh.setMatrixAt(i, _mat4)
+    }
+    mesh.instanceMatrix.needsUpdate = true
+  }
+
   _createMesh() {
     let angle = 0
     const planeGeo = new PlaneGeometry(1, 1)
     const mesh = new InstancedMesh(planeGeo, this.#material, NB_POINTS)
-    const matrix = new Matrix4()
 
     for (let i = 0; i < NB_POINTS; i++) {
       const radius = randFloat(RANGE_MIN, RANGE_MAX)
@@ -127,10 +156,12 @@ export default class Lightnings {
       const x = radius * Math.cos(angle)
       const z = radius * Math.sin(angle)
 
-      matrix.identity()
-      matrix.setPosition(x, 0, z)
-      matrix.scale(new Vector3(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE))
-      mesh.setMatrixAt(i, matrix)
+      this.#positions.push(x, 0, z)
+
+      _mat4.identity()
+      _mat4.setPosition(x, 0, z)
+      _mat4.scale(_scale)
+      mesh.setMatrixAt(i, _mat4)
     }
     mesh.instanceMatrix.needsUpdate = true
 

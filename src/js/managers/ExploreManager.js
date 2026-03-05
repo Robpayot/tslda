@@ -3,7 +3,7 @@ import Winds from '../components/Entitites/Winds'
 import { EventBusSingleton } from 'light-event-bus'
 import { CLOSE_TREASURE, EVENT_HIT, EVENT_SCORE, EXPLORE_MESSAGE, MODE, START_EXPLORE } from '../utils/constants'
 import Waves from '../components/Entitites/Waves'
-import { sortPoints, sortInstancedMesh } from '../utils/three'
+import { sortPoints } from '../utils/three'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../components/Ocean'
 import GridManager from './GridManager'
 import EnvManager from './EnvManager'
@@ -156,11 +156,11 @@ class ExploreManager {
 
     this.#coefOffset = SCALE_OCEAN / REPEAT_OCEAN
 
-    return
-
-
     this.#stars = new Stars()
     this.#parent.add(this.#stars.mesh)
+
+    return
+
 
     // entities
     this.#rupees = this._createRupees()
@@ -568,7 +568,7 @@ class ExploreManager {
 
 
     if (EnvManager.settingsOcean.alphaLightnings > 0) {
-      sortInstancedMesh(this.#lightnings.mesh, this.camera)
+      this.#lightnings.billboardToCamera(this.camera)
       this.#lightnings.material.uTime.value += (delta / 16) * 0.1
       this.#lightnings.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaLightnings
 
@@ -576,7 +576,6 @@ class ExploreManager {
       this.#lightnings.mesh.position.z = this.#lightnings.mesh.initPos.z + playerZ
     }
 
-    return
 
 
     // stars
@@ -584,6 +583,9 @@ class ExploreManager {
       this.#stars.material.uniforms.uTime.value += (delta / 16) * 0.1
       this.#stars.material.uniforms.globalOpacity.value = EnvManager.settings.alphaStars
     }
+
+    return
+
 
     // Entities
     for (let i = 0; i < this.#entities.length; i++) {

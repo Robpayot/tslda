@@ -374,6 +374,10 @@ export default class Ocean extends Object3D {
   update({ time, delta }) {
     const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
 
+    // Increment time BEFORE copying to heightmap so both render with the same value
+    this.uTimeWave.value += (delta / 16) * speedWave
+    this.uTimeTex.value += (delta / 16) * speedTex * (1 + ControllerManager.boat.velocityP)
+
     OceanHeightMap.uTimeWave.value = this.uTimeWave.value
     OceanHeightMap.uDirTex.value = GridManager.offsetUV
     this.uDirTex.value = GridManager.offsetUV
@@ -388,10 +392,6 @@ export default class Ocean extends Object3D {
     this.uFogDensity.value = fogDensity
     this.uExtFogColor.value = new Color(fogColor)
     this.uExtFogDensity.value = fogDensity
-
-    // texture
-    this.uTimeWave.value += (delta / 16) * speedWave
-    this.uTimeTex.value += (delta / 16) * speedTex * (1 + ControllerManager.boat.velocityP)
     // to do also update other uniforms based on EnvManager
     // TODO: compense by camera direction
 
