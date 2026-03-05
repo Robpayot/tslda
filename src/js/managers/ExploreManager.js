@@ -580,6 +580,7 @@ class ExploreManager {
 
     // stars
     if (EnvManager.settings.alphaStars > 0) {
+      this.#stars.billboardToCamera(this.camera)
       this.#stars.material.uTime.value += (delta / 16) * 0.1
       this.#stars.material.uGlobalOpacity.value = EnvManager.settings.alphaStars
     }

@@ -920,7 +920,7 @@ Required imports for this pattern:
 
 ### Points → InstancedMesh Migration Notes
 
-WebGPU does not support `gl_PointCoord` or variable `gl_PointSize` like WebGL. When converting `Points`-based effects:
+WebGPU does not support `gl_PointCoord` or variable `gl_PointSize` like WebGL. **`PointsNodeMaterial.sizeNode` has no effect** — points render as 1×1 pixel regardless. When converting `Points`-based effects:
 
 1. Replace `Points` with `InstancedMesh` using `PlaneGeometry(1, 1)`.
 2. Replace `gl_PointCoord` with `uv()`.
