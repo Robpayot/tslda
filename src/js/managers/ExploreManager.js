@@ -150,15 +150,17 @@ class ExploreManager {
     this.#waves = new Waves()
     this.#parent.add(this.#waves.mesh)
 
-    return
 
     this.#lightnings = new Lightnings()
     this.#parent.add(this.#lightnings.mesh)
 
+    this.#coefOffset = SCALE_OCEAN / REPEAT_OCEAN
+
+    return
+
+
     this.#stars = new Stars()
     this.#parent.add(this.#stars.mesh)
-
-    this.#coefOffset = SCALE_OCEAN / REPEAT_OCEAN
 
     // entities
     this.#rupees = this._createRupees()
@@ -217,7 +219,7 @@ class ExploreManager {
     this.subHit?.unsubscribe()
     this.subScore?.unsubscribe()
     this.#parent.visible = false
-    this.#lightnings.material.uniforms.globalOpacity.value = 0
+    this.#lightnings.material.uGlobalOpacity.value = 0
     for (let i = 0; i < NB_WINDS; i++) {
       this.#winds[i].kill()
     }
@@ -564,16 +566,18 @@ class ExploreManager {
       this.#waves.mesh.position.z = this.#waves.mesh.initPos.z + playerZ
     }
 
-    return
 
     if (EnvManager.settingsOcean.alphaLightnings > 0) {
-      sortPoints(this.#lightnings.mesh, this.camera)
-      this.#lightnings.material.uniforms.uTime.value += (delta / 16) * 0.1
-      this.#lightnings.material.uniforms.globalOpacity.value = EnvManager.settingsOcean.alphaLightnings
+      sortInstancedMesh(this.#lightnings.mesh, this.camera)
+      this.#lightnings.material.uTime.value += (delta / 16) * 0.1
+      this.#lightnings.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaLightnings
 
       this.#lightnings.mesh.position.x = this.#lightnings.mesh.initPos.x - playerX
       this.#lightnings.mesh.position.z = this.#lightnings.mesh.initPos.z + playerZ
     }
+
+    return
+
 
     // stars
     if (EnvManager.settings.alphaStars > 0) {

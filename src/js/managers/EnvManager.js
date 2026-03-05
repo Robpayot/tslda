@@ -174,7 +174,7 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 1 // update to debug
+      this.#index = 1  // update to debug
     }
     this.tl?.kill()
     this.tl = new gsap.timeline()
@@ -302,6 +302,7 @@ class EnvManager {
       current.ocean.alphaTex + this.progress * (next.ocean.alphaTex - current.ocean.alphaTex)
     this.#settingsOcean.alphaTex2 =
       current.ocean.alphaTex2 + this.progress * (next.ocean.alphaTex2 - current.ocean.alphaTex2)
+      console.log(this.#settingsOcean.alphaWaves)
     this.#settingsOcean.alphaWaves =
       current.ocean.alphaWaves + this.progress * (next.ocean.alphaWaves - current.ocean.alphaWaves)
     this.#settingsOcean.alphaLightnings =

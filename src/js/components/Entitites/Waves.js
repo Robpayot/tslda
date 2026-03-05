@@ -4,6 +4,7 @@ import {
   PlaneGeometry,
   InstancedMesh,
   DoubleSide,
+  Vector3,
 } from 'three'
 import { NodeMaterial } from 'three/webgpu'
 
@@ -35,10 +36,7 @@ import OceanHeightMap from '../Ocean/OceanHeightMap'
 
 const NB_POINTS = 300
 const RANGE = 1200
-const SPRITE_SCALE = 7
-
-// Set to true to force bright red quads (no texture/discard) to verify waves are in the scene
-const WAVES_DEBUG_VISIBLE = false
+const SPRITE_SCALE = 15
 
 export default class Waves {
   #geo
@@ -50,7 +48,7 @@ export default class Waves {
 
     this.tlReset = new gsap.timeline({ repeat: -1, repeatDelay: 5 })
     this.tlReset.to(this.material.uOpacity, {
-      value: 1,
+      value: 0,
       duration: 0.8,
     })
     this.tlReset.add(() => {
@@ -85,55 +83,45 @@ export default class Waves {
     const uGlobalOpacity = uniform(EnvManager.settingsOcean.alphaWaves)
     const uScaleOcean = uniform(SCALE_OCEAN)
 
-    const heightMapTexture = OceanHeightMap.heightMap?.texture ?? LoaderManager.defaultTexture
+    const heightMapTex = OceanHeightMap.heightMap?.texture ?? LoaderManager.defaultTexture
 
-    // Heightmap-based Y displacement (same logic as original waves.vert: sample at world pos, 5-tap avg, displace Y)
+    // Vertex: heightmap Y displacement
+    // Original GLSL modifies gl_Position.y (clip space after projection).
+    // In TSL positionNode works in local space (before instance matrix).
+    // The instance matrix scales by SPRITE_SCALE, so local displacement is amplified.
+    // We replicate the original formula and divide by SPRITE_SCALE to compensate.
     const positionNodeFn = Fn(() => {
+      const wPos = positionWorld
       const uvGrid = vec2(
-        float(0.5).add(positionWorld.x.div(uScaleOcean)),
-        float(0.5).sub(positionWorld.z.div(uScaleOcean))
+        float(0.5).add(wPos.x.div(uScaleOcean)),
+        float(0.5).sub(wPos.z.div(uScaleOcean))
       )
-      const offset = float(0.01)
-      const heightMapPos = texture(heightMapTexture, uvGrid)
-      const heightMapPos1A = texture(heightMapTexture, vec2(uvGrid.x.add(offset), uvGrid.y))
-      const heightMapPos1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(offset)))
-      const heightMapPos2A = texture(heightMapTexture, vec2(uvGrid.x.sub(offset), uvGrid.y))
-      const heightMapPos2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(offset)))
-      const avgH = heightMapPos.r
-        .add(heightMapPos1A.r)
-        .add(heightMapPos1B.r)
-        .add(heightMapPos2A.r)
-        .add(heightMapPos2B.r)
-        .div(5.0)
-      const displacementY = avgH
-        .sub(0.5)
-        .mul(2.0)
-        .mul(heightMapPos.b.mul(100.0))
-        .mul(2.0)
-        .mul(0.01)
-      return positionLocal.add(vec3(float(0), displacementY, float(0)))
+      const offs = float(0.01)
+      const hm0 = texture(heightMapTex, uvGrid)
+      const hm1A = texture(heightMapTex, vec2(uvGrid.x.add(offs), uvGrid.y))
+      const hm1B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.add(offs)))
+      const hm2A = texture(heightMapTex, vec2(uvGrid.x.sub(offs), uvGrid.y))
+      const hm2B = texture(heightMapTex, vec2(uvGrid.x, uvGrid.y.sub(offs)))
+      const avgH = hm0.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+      // Original: (avgH - 0.5) * 2 * (b * 100) * 2 in clip space
+      const disp = avgH.sub(0.5).mul(2.0).mul(hm0.b.mul(100.0)).mul(2.0).div(float(SPRITE_SCALE))
+      return positionLocal.add(vec3(0, disp, 0))
     })
 
-    // Per-instance phase from instanceIndex (no custom InstancedBufferAttribute in shader - more reliable in WebGPU)
-    const offsetNode = float(instanceIndex).mul(0.33)
-    const speedNode = float(1).add(float(instanceIndex).mul(0.002))
-    const vProgress = varying(
-      sin(uTime.mul(0.1).mul(speedNode).add(offsetNode)),
-      'vProgress'
-    )
-    const vProgressAlpha = varying(
-      sin(uTime.mul(0.1).add(offsetNode)),
-      'vProgressAlpha'
-    )
+    // Per-instance animation phase derived from instanceIndex
+    const idx = float(instanceIndex)
+    const offsetVal = idx.mul(0.33)
+    const speedVal = float(1).add(idx.mul(0.002))
+    const vProgress = varying(sin(uTime.mul(0.1).mul(speedVal).add(offsetVal)), 'vProgress')
+    const vProgressAlpha = varying(sin(uTime.mul(0.1).add(offsetVal)), 'vProgressAlpha')
 
+    // Fragment: sample wave texture with UV manipulation, discard dark pixels
     const colorFn = Fn(() => {
-      if (WAVES_DEBUG_VISIBLE) {
-        return vec4(1.0, 0.2, 0.2, 0.95)
-      }
       const uvBase = uv()
       const alpha = float(1).sub(vProgressAlpha)
       const ratioUV = uRatioTexture.mul(float(0.5).add(vProgress.mul(0.5)))
-      const uvY = uvBase.y.add(ratioUV.mul(0.5).sub(0.5)).div(ratioUV)
+      // Original: uv.y += ratioUV / 2 - 0.5;  uv.y /= ratioUV;
+      const uvY = uvBase.y.add(ratioUV.div(2.0).sub(0.5)).div(ratioUV)
       const uvSampler = vec2(uvBase.x, uvY)
       const tex = texture(mapTexture, uvSampler)
 
@@ -141,8 +129,7 @@ export default class Waves {
         Discard()
       })
 
-      const finalAlpha = tex.a.mul(alpha).mul(uOpacity).mul(1)
-      return vec4(tex.rgb, finalAlpha)
+      return vec4(tex.rgb, tex.a.mul(alpha).mul(uOpacity).mul(uGlobalOpacity))
     })
 
     const material = new NodeMaterial()
@@ -151,7 +138,6 @@ export default class Waves {
     material.side = DoubleSide
     material.transparent = true
     material.depthWrite = false
-    material.depthTest = true
 
     material.uTime = uTime
     material.uRatioTexture = uRatioTexture
@@ -173,6 +159,7 @@ export default class Waves {
     }
 
     const planeGeo = new PlaneGeometry(1, 1)
+    planeGeo.rotateX(-Math.PI / 2) // Lay flat in XZ plane, normal pointing up
     planeGeo.setAttribute('offset', new InstancedBufferAttribute(new Float32Array(offsets), 1))
     planeGeo.setAttribute('speed', new InstancedBufferAttribute(new Float32Array(speeds), 1))
 
@@ -182,7 +169,7 @@ export default class Waves {
     for (let i = 0; i < NB_POINTS; i++) {
       matrix.identity()
       matrix.setPosition(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2])
-      matrix.scale(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE)
+      matrix.scale(new Vector3(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE))
       mesh.setMatrixAt(i, matrix)
     }
     mesh.instanceMatrix.needsUpdate = true

@@ -1,3 +1,8 @@
+---
+description: "This rule automating development workflows and documentation generation"
+alwaysApply: true
+---
+
 # Automating development workflows and documentation generation
 
 This rule automates app analysis:
@@ -19,5 +24,6 @@ This rule automates app analysis:
 - Generating markdown documentation
 
 # TSL conversion
-- Please use @.cursor/skills/tsl/SKILL.md when converting to TSL
-- Always comment anything related to RenderTarget for now, if it's mentioned in the share
+- **IMPORTANT**: Always read and follow @.cursor/skills/tsl/SKILL.md BEFORE any TSL/shader conversion
+- Always comment anything related to RenderTarget for now, if it's mentioned in the shader
+- Always pass textures directly to `texture()` — do NOT wrap them in `uniform()`
