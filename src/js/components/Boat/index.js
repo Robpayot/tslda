@@ -99,7 +99,7 @@ export default class Boat {
   initSubObjects() {
     // fix issue objects no appearing
     this.#sailMesh = this._createSailMesh()
-    // this.#splashMeshes = this._createSplashMeshes()
+    this.#splashMeshes = this._createSplashMeshes()
     // this.#particleSideMesh = this._createParticlesSideMesh()
     // this.#particlesFrontMesh = this._createParticlesFrontMesh()
     // this.#particlesJumpMesh = this._createParticlesJumpMesh()

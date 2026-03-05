@@ -1,11 +1,9 @@
-import { Color, DoubleSide, ShaderMaterial } from 'three'
+import { Color } from 'three'
 import ControllerManager from '../../managers/ControllerManager'
-import vertexShader from '@glsl/splash/splash.vert'
-import fragmentShader from '@glsl/splash/splash.frag'
 import { gsap } from 'gsap'
 import EnvManager from '../../managers/EnvManager'
-import Settings from '../../utils/Settings'
 import { BOAT_MODE } from '.'
+import { createSplashMaterial } from './SplashMaterials'
 
 const SCALE_INCR = 0.1
 const SCALE_COEF = 1.4
@@ -47,33 +45,7 @@ export default class Splashes {
     this.#mesh2Parent.scale.set(5, 5, 5)
     this.#mesh2.receiveCustomShadow = true
 
-    this.material = new ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      uniforms: {
-        uTime: { value: 0 },
-        uColor: { value: new Color(EnvManager.settingsOcean.color) },
-        power: { value: 0.91 },
-        // shadows
-        uLightPos: {
-          value: EnvManager.sunDir.position,
-        },
-        uDepthMap: {
-          value: null, //EnvManager.sunShadowMap.map.texture,
-        },
-        uShadowCameraP: {
-          value: EnvManager.sunShadowMap.camera.projectionMatrix,
-        },
-        uShadowCameraV: {
-          value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-        },
-        alphaTex: { value: EnvManager.settingsOcean.alphaTex },
-      },
-      side: DoubleSide,
-      defines: {
-        USE_SHADOWS: Settings.castShadows,
-      },
-    })
+    this.material = createSplashMaterial()
 
     this.#mesh1.material = this.material
     this.#mesh2.material = this.material
@@ -81,11 +53,12 @@ export default class Splashes {
     this.#initY = this.#mesh1.position.y
   }
 
-  update({ time, delta }) {
-    return // TSL migration: scene cleared
+  update({ delta }) {
+    if (!ControllerManager.boat) return
+
     const { color, foam } = EnvManager.settingsOcean
-    this.material.uniforms.uColor.value = new Color(color)
-    this.material.uniforms.alphaTex.value = foam
+    if (this.material?.uColor) this.material.uColor.value = new Color(color)
+    if (this.material?.uAlphaTex) this.material.uAlphaTex.value = foam
     // Jump
     if (ControllerManager.boat.up > 0) {
       this.#mesh1Parent.position.z -= ControllerManager.boat.velocity * ControllerManager.boat.speedTextureOffset
