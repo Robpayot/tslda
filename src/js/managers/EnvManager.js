@@ -174,7 +174,7 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 1  // update to debug
+      this.#index = 3  // update to debug
     }
     this.tl?.kill()
     this.tl = new gsap.timeline()
@@ -270,6 +270,7 @@ class EnvManager {
       )})`
 
       this.#settings.ambientLight = color
+      this.#ambientLight.color.setStyle(this.#settings.ambientLight)
     }
 
     // sun Dir
@@ -281,6 +282,7 @@ class EnvManager {
     } else {
       this.#settings.sunDir.y = MAX_SHADOW_CAMERA + 50
     }
+    this.#sunDir.position.copy(this.#settings.sunDir)
     this.#sunDir.shadow.camera.position.copy(this.#settings.sunDir)
     this.#sunDir.shadow.camera.lookAt(new Vector3(0, 0, 0))
 
@@ -336,9 +338,15 @@ class EnvManager {
 
     for (let i = 0; i < this.#toonMaterials.length; i++) {
       const material = this.#toonMaterials[i]
-      material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
-      if (material.uniforms.coefShadow) {
-        material.uniforms.coefShadow.value = this.#settings.coefShadow
+      if (material.uniforms) {
+        material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
+        if (material.uniforms.coefShadow) {
+          material.uniforms.coefShadow.value = this.#settings.coefShadow
+        }
+      } else if (material.uAmbientColor) {
+        if (material.uCoefShadow) {
+          material.uCoefShadow.value = this.#settings.coefShadow
+        }
       }
     }
   }
@@ -378,12 +386,19 @@ class EnvManager {
 
     const settingsChangedHandler = () => {
       this.#sunDir.position.set(this.#settings.sunDir.x, this.#settings.sunDir.y, this.#settings.sunDir.z)
-      this.#ambientLight.color = new Color(this.#settings.ambientLight)
+      this.#ambientLight.color.setStyle(this.#settings.ambientLight)
 
       this.#toonMaterials.forEach((material) => {
-        material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
-        if (material.uniforms.coefShadow) {
-          material.uniforms.coefShadow.value = this.#settings.coefShadow
+        if (material.uniforms) {
+          material.uniforms.ambientColor.value = new Color(this.#settings.ambientLight)
+          if (material.uniforms.coefShadow) {
+            material.uniforms.coefShadow.value = this.#settings.coefShadow
+          }
+        } else if (material.uAmbientColor) {
+          // TSL materials use reference to ambientLight.color, already updated above
+          if (material.uCoefShadow) {
+            material.uCoefShadow.value = this.#settings.coefShadow
+          }
         }
       })
 

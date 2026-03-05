@@ -1,4 +1,4 @@
-import { Object3D, ShaderMaterial } from 'three'
+import { Object3D } from 'three'
 import { MathUtils } from 'three'
 const { clamp, degToRad, lerp } = MathUtils
 import ControllerManager from '../../managers/ControllerManager'
@@ -11,13 +11,7 @@ import Sail from './Sail'
 import ParticlesFront from './ParticlesFront'
 import ParticlesJump from './ParticlesJump'
 
-// Toon
-import vertexToonShader from '@glsl/partials/toon.vert'
-import fragmentToonShader from '@glsl/partials/toon.frag'
-// Receive shadows
-import vertexReceiveShadowShader from '@glsl/shadows/receiveShadow.vert'
-import fragmentReceiveShadowShader from '@glsl/shadows/receiveShadow.frag'
-import EnvManager from '../../managers/EnvManager'
+import { createToonMaterial, createReceiveShadowMaterial } from './BoatMaterials'
 import {
   CLOSE_TREASURE,
   EVENT_HIT,
@@ -29,7 +23,6 @@ import {
   TRIFORCE_FOUND,
 } from '../../utils/constants'
 import { EventBusSingleton } from 'light-event-bus'
-import Settings from '../../utils/Settings'
 import Crane from './Crane'
 import ExploreManager from '../../managers/ExploreManager'
 import Rupees from '../Entitites/Rupees'
@@ -206,60 +199,15 @@ export default class Boat {
   _createMaterials() {
     const boatMesh = this.#mesh.getObjectByName('boat')
 
-    // Replace materials by custom Toon materials
-
     boatMesh.children.forEach((child) => {
       if (child.name !== 'boat-sail' && (child.type === 'SkinnedMesh' || child.type === 'Mesh')) {
-        const textureOg = child.material.map
+        const mapTexture = child.material.map
 
         if (child.name === 'boat-body') {
           this.#boatBodyMesh = child
-          // add receive shadows
-          child.material = new ShaderMaterial({
-            vertexShader: vertexReceiveShadowShader,
-            fragmentShader: fragmentReceiveShadowShader,
-            uniforms: {
-              map: { value: textureOg },
-              sunDir: { value: EnvManager.sunDir.position },
-              ambientColor: { value: EnvManager.ambientLight.color },
-              // receive shadows
-              uDepthMap: {
-                value: null, // EnvManager.sunShadowMap.map.texture,
-              },
-              uShadowCameraP: {
-                value: EnvManager.sunShadowMap.camera.projectionMatrix,
-              },
-              uShadowCameraV: {
-                value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-              },
-              coefShadow: {
-                value: EnvManager.settings.coefShadow,
-              },
-              sRGBSpace: { value: 0 },
-            },
-            defines: {
-              USE_BONES: child.type === 'SkinnedMesh',
-              USE_SHADOWS: Settings.castShadows,
-              // USE_MORPHTARGETS: true,
-            },
-            name: 'toon',
-          })
+          child.material = createReceiveShadowMaterial(mapTexture)
         } else {
-          child.material = new ShaderMaterial({
-            vertexShader: vertexToonShader,
-            fragmentShader: fragmentToonShader,
-            uniforms: {
-              map: { value: textureOg },
-              sunDir: { value: EnvManager.sunDir.position },
-              ambientColor: { value: EnvManager.ambientLight.color },
-              coefShadow: { value: EnvManager.settings.coefShadow },
-              sRGBSpace: { value: 0 },
-            },
-            defines: {
-              USE_BONES: child.type === 'SkinnedMesh',
-            },
-            name: 'toon',
-          })
+          child.material = createToonMaterial(mapTexture)
         }
 
         child.castCustomShadow = true

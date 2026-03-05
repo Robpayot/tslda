@@ -25,8 +25,8 @@ const NB_POINTS = 10
 const RANGE_MAX = 3000
 const RANGE_MIN = 2500
 // Original gl_PointSize = 1000 * (400 / -mvPosition.z), K = 400000
-// Conversion factor C = 1/3000 (derived from Waves: uSize=450, factor=100, worldScale=15)
-const SPRITE_SCALE = 133
+// Conversion factor C = 1/3000 → base 133. Scaled 2x to match stars.
+const SPRITE_SCALE = 266
 
 const _scale = new Vector3(SPRITE_SCALE, SPRITE_SCALE, SPRITE_SCALE)
 const _mat4 = new Matrix4()

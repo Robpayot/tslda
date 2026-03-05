@@ -55,11 +55,11 @@ export default class MainView {
     this.#components = this._createComponents()
 
     // TSL migration: managers disabled — re-enable after conversion
-    // GridManager.init(this.#scene)
+    GridManager.init(this.#scene)
     // GameManager.init(this.#scene)
     ExploreManager.init(this.#scene, this.camera)
     EnvManager.setOceanExtend(this.#components.ocean?.meshExtend)
-    // EnvManager.setToonMaterials()
+    EnvManager.setToonMaterials()
     ModeManager.addCamera(this.#cameraManager)
 
     // TSL migration: disabled — re-enable after conversion
@@ -154,7 +154,7 @@ export default class MainView {
   _createComponents() {
     const components = {}
     // TSL migration: all components disabled — re-enable one by one after conversion
-    // components.boat = this._createBoatComponent()
+    components.boat = this._createBoatComponent()
     // components.link = this._createLinkComponent()
     components.ocean = this._createOceanComponent()
     components.clouds = this._createCloudsComponent()
@@ -184,7 +184,7 @@ export default class MainView {
 
     this.#scene.add(component.object)
 
-    component.initSubObjects()
+    // component.initSubObjects()
 
     return component
   }
