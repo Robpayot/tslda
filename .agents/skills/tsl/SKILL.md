@@ -48,7 +48,9 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 
 - Please run `npm run dev` and check for JS errors after conversion.
 
-- To avoid this error: "THREE.TSL: NodeError: THREE.TSL: `texture( value )` function expects a valid instance of THREE.Texture()." Please pass textures in uniform().
+- To avoid this error: "THREE.TSL: NodeError: THREE.TSL: `texture( value )` function expects a valid instance of THREE.Texture()."
+  - **In this project, `texture(...)` expects a real `THREE.Texture` as its first argument** (see `Lightnings`, `Stars`, etc). Do **not** do `texture( uniform(tex), uv )`.
+  - Use `LoaderManager.getTexture('name')` to guarantee a valid texture (falls back to a 1×1 `DataTexture` until loaded), then sample with `texture(mapTexture, uv())`.
 
 ### Component + Material folder structure
 

@@ -32,7 +32,7 @@ import { BOAT_MODE } from '.'
 
 const MAX_OPACITY = 0.8
 const NB_PARTICLES = 2300
-const SPRITE_SCALE = 0.15
+const SPRITE_SCALE = 0.4
 const PI = Math.PI
 const INIT_Z = 6
 

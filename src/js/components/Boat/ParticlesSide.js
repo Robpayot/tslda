@@ -28,7 +28,7 @@ import EnvManager from '../../managers/EnvManager'
 import LoaderManager from '../../managers/LoaderManager'
 
 const MAX_OPACITY = 0.4
-const SPRITE_SCALE = 0.15
+const SPRITE_SCALE = 0.4
 const PI = Math.PI
 
 export default class ParticlesSide {
@@ -122,7 +122,8 @@ export default class ParticlesSide {
       const texColor = texture(mapTexture, uvCoord)
       const finalAlpha = circleMask.mul(texColor.a).mul(uOpacity)
 
-      If(finalAlpha.lessThan(0.3), () => {
+      // uOpacity max is 0.4, so discard must be much lower than 0.3
+      If(finalAlpha.lessThan(0.02), () => {
         Discard()
       })
 
@@ -139,6 +140,12 @@ export default class ParticlesSide {
 
     this.#mesh = new InstancedMesh(planeGeo, material, count)
     this.#material = this.#mesh.material
+
+    // Preserve original transform from the GLTF helper mesh
+    this.#mesh.position.copy(particlesEdgeMesh.position)
+    this.#mesh.quaternion.copy(particlesEdgeMesh.quaternion)
+    this.#mesh.scale.copy(particlesEdgeMesh.scale)
+
     parent.remove(particlesEdgeMesh)
     parent.add(this.#mesh)
 
@@ -161,7 +168,7 @@ export default class ParticlesSide {
       MAX_OPACITY * Math.min(1, EnvManager.settingsOcean.foam)
     )
     mat.uActive.value = Math.min(3 * turnForce + velocity, 1)
-    mat.alphaTest = mat.uOpacity.value - 0.05
+    mat.alphaTest = Math.max(0, mat.uOpacity.value - 0.05)
 
     if (ControllerManager.boat.up > 0) {
       mat.uOpacity.value = 0

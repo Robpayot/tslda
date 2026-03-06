@@ -32,7 +32,7 @@ const MAX_OPACITY = 0.6
 const NB_PARTICLES = 500
 const GRAVITY = 0.5
 const MAX_GRAVITY_LOW = -4
-const SPRITE_SCALE = 0.15
+const SPRITE_SCALE = 0.4
 const INIT_Z = 7
 const INIT_Y = -1
 
@@ -135,7 +135,8 @@ export default class ParticlesJump {
       const texColor = texture(mapTexture, uvCoord)
       const finalAlpha = circleMask.mul(texColor.a).mul(uOpacity)
 
-      If(finalAlpha.lessThan(0.5), () => {
+      // uOpacity max is 0.6, so discard must be much lower than 0.5
+      If(finalAlpha.lessThan(0.02), () => {
         Discard()
       })
 
