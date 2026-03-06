@@ -1,11 +1,29 @@
-import { BufferAttribute, BufferGeometry, Points, PointsMaterial } from 'three'
-import vertexShader from '@glsl/boat/particlesJump.vert'
-import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
-import LoaderManager from '../../managers/LoaderManager'
+import {
+  InstancedBufferAttribute,
+  PlaneGeometry,
+  InstancedMesh,
+} from 'three'
+import { SpriteNodeMaterial } from 'three/webgpu'
+import {
+  Fn,
+  uniform,
+  float,
+  vec2,
+  vec3,
+  vec4,
+  texture,
+  uv,
+  attribute,
+  smoothstep,
+  distance,
+  If,
+  Discard,
+} from 'three/tsl'
 import { MathUtils } from 'three'
-const { degToRad, lerp, randFloat } = MathUtils
+const { degToRad, randFloat, lerp } = MathUtils
 import ControllerManager from '../../managers/ControllerManager'
 import EnvManager from '../../managers/EnvManager'
+import LoaderManager from '../../managers/LoaderManager'
 import SoundManager, { SOUNDS_CONST } from '../../managers/SoundManager'
 import { MODE } from '../../utils/constants'
 import ModeManager from '../../managers/ModeManager'
@@ -14,6 +32,9 @@ const MAX_OPACITY = 0.6
 const NB_PARTICLES = 500
 const GRAVITY = 0.5
 const MAX_GRAVITY_LOW = -4
+const SPRITE_SCALE = 0.15
+const INIT_Z = 7
+const INIT_Y = -1
 
 export default class ParticlesJump {
   #mesh
@@ -29,24 +50,19 @@ export default class ParticlesJump {
   jumpP = 0
 
   #debug
-  #initZ = 7
-  #initY = -1
+  #initZ = INIT_Z
+  #initY = INIT_Y
   #targetUp = 0
   #up = 0
+
   constructor(parent, debug) {
     this.#debug = debug
-    // Custom Material
-
-    // Particles in Front
-    // Create geometry
-    const geometry = new BufferGeometry()
-
-    let delayArray = []
-    let sizeArray = []
-    let positionArray = []
-    let angleArray = []
 
     const range = 5
+    const positionArray = []
+    const delayArray = []
+    const sizeArray = []
+    const angleArray = []
 
     for (let i = 0; i < NB_PARTICLES; i++) {
       delayArray.push(Math.random() + 1)
@@ -54,52 +70,91 @@ export default class ParticlesJump {
 
       const angle = randFloat(0, 360)
       const radius = randFloat(0, range)
-
-      positionArray[i * 3] = Math.cos(degToRad(angle)) * radius
-      positionArray[i * 3 + 1] = this.#initY
-      positionArray[i * 3 + 2] = Math.sin(degToRad(angle)) * radius
-
-      angleArray[i] = degToRad(randFloat(0, 360))
+      positionArray.push(
+        Math.cos(degToRad(angle)) * radius,
+        this.#initY,
+        Math.sin(degToRad(angle)) * radius
+      )
+      angleArray.push(degToRad(randFloat(0, 360)))
     }
 
-    const position = new Float32Array(positionArray)
-    const delay = new Float32Array(delayArray)
-    const size = new Float32Array(sizeArray)
-    const angle = new Float32Array(angleArray)
+    const planeGeo = new PlaneGeometry(1, 1)
+    planeGeo.setAttribute(
+      'instancePosition',
+      new InstancedBufferAttribute(new Float32Array(positionArray), 3)
+    )
+    planeGeo.setAttribute(
+      'delay',
+      new InstancedBufferAttribute(new Float32Array(delayArray), 1)
+    )
+    planeGeo.setAttribute(
+      'aSize',
+      new InstancedBufferAttribute(new Float32Array(sizeArray), 1)
+    )
+    planeGeo.setAttribute(
+      'angle',
+      new InstancedBufferAttribute(new Float32Array(angleArray), 1)
+    )
 
-    // itemSize = 1 because there are 1 values (components) per vertex
-    geometry.setAttribute('position', new BufferAttribute(position, 3))
-    geometry.setAttribute('delay', new BufferAttribute(delay, 1))
-    geometry.setAttribute('aSize', new BufferAttribute(size, 1))
-    geometry.setAttribute('angle', new BufferAttribute(angle, 1))
+    // NOTE: In this project, `texture(...)` expects a real THREE.Texture (see Lightnings).
+    // Use LoaderManager.getTexture() so we always have a valid fallback texture.
+    const mapTexture = LoaderManager.getTexture('bubble')
+    const uDuration = uniform(this.#settings.uDuration)
+    const uForce = uniform(this.#settings.uForce)
+    const uCoefDelay = uniform(this.#settings.uCoefDelay)
+    const uCoefY = uniform(this.#settings.uCoefY)
+    const uActive = uniform(this.#settings.uActive)
+    const uProgress = uniform(0)
+    const uOpacity = uniform(MAX_OPACITY)
 
-    const texture = LoaderManager.get('bubble').texture
+    const aPosition = attribute('instancePosition', 'vec3')
+    const aDelay = attribute('delay', 'float')
+    const aSize = attribute('aSize', 'float')
 
-    this.#material = new CustomShaderMaterial({
-      baseMaterial: PointsMaterial,
-      vertexShader,
-      // fragmentShader,
-      map: texture,
-      silent: true, // Disables the default warning if true
-      uniforms: {
-        uTime: { value: 100 },
-        uDuration: { value: this.#settings.uDuration },
-        uCoefDelay: { value: this.#settings.uCoefDelay },
-        uCoefY: { value: this.#settings.uCoefY },
-        uActive: { value: 1 },
-        uProgress: { value: 0 },
-      },
-      // side: DoubleSide,
+    const material = new SpriteNodeMaterial({
       transparent: true,
-      opacity: MAX_OPACITY,
+      depthWrite: false,
       alphaTest: 0.5,
     })
 
-    this.#mesh = new Points(geometry, this.#material)
+    material.positionNode = Fn(() => {
+      const animatedPos = vec3(
+        aPosition.x,
+        aPosition.y.add(aDelay.mul(uProgress)),
+        aPosition.z
+      )
+      return animatedPos
+    })()
 
+    material.scaleNode = aSize.mul(SPRITE_SCALE)
+
+    material.colorNode = Fn(() => {
+      const uvCoord = uv()
+      const dist = float(0.5).sub(distance(uvCoord, vec2(0.5)))
+      const circleMask = smoothstep(float(0.0), float(0.1), dist)
+      const texColor = texture(mapTexture, uvCoord)
+      const finalAlpha = circleMask.mul(texColor.a).mul(uOpacity)
+
+      If(finalAlpha.lessThan(0.5), () => {
+        Discard()
+      })
+
+      return vec4(texColor.rgb, finalAlpha)
+    })()
+
+    // Expose uniforms for updates/debug (even if not all are used here)
+    material.uDuration = uDuration
+    material.uForce = uForce
+    material.uCoefDelay = uCoefDelay
+    material.uCoefY = uCoefY
+    material.uActive = uActive
+    material.uProgress = uProgress
+    material.uOpacity = uOpacity
+
+    this.#mesh = new InstancedMesh(planeGeo, material, NB_PARTICLES)
+    this.#material = this.#mesh.material
     this.#mesh.position.z = this.#initZ
     this.#mesh.position.y = 0
-
     parent.add(this.#mesh)
 
     this._createDebugFolder()
@@ -109,11 +164,13 @@ export default class ParticlesJump {
     return this.#mesh
   }
 
-  update({ time, delta, velocity }) {
-    return // TSL migration: scene cleared
+  get material() {
+    return this.#material
+  }
+
+  update() {
     if (ControllerManager.boat.up > 0) {
       this.progress = 0
-      // this.#mesh.position.z -= ControllerManager.boat.velocity * ControllerManager.boat.speedTextureOffset
       if (!this.startJump) {
         this.startJump = true
         this.finishJump = false
@@ -149,22 +206,19 @@ export default class ParticlesJump {
       this.#mesh.visible = true
     }
 
-    this.#material.uniforms.uProgress.value = this.#up
-    this.#material.opacity = MAX_OPACITY * Math.min(1, EnvManager.settingsOcean.foam)
-    this.#material.alphaTest = this.#material.opacity - 0.05
+    this.#material.uProgress.value = this.#up
+    this.#material.uOpacity.value = MAX_OPACITY * Math.min(1, EnvManager.settingsOcean.foam)
+    this.#material.alphaTest = this.#material.uOpacity.value - 0.05
   }
 
-  /**
-   * Debug
-   */
   _createDebugFolder() {
     if (!this.#debug) return
 
     const settingsChangedHandler = () => {
-      this.#material.uniforms.uDuration.value = this.#settings.uDuration
-      this.#material.uniforms.uForce.value = this.#settings.uForce
-      this.#material.uniforms.uCoefDelay.value = this.#settings.uCoefDelay
-      this.#material.uniforms.uCoefY.value = this.#settings.uCoefY
+      this.#material.uDuration.value = this.#settings.uDuration
+      this.#material.uForce.value = this.#settings.uForce
+      this.#material.uCoefDelay.value = this.#settings.uCoefDelay
+      this.#material.uCoefY.value = this.#settings.uCoefY
     }
 
     const debug = this.#debug.addFolder({ title: 'Splash Jump', expanded: false })
@@ -178,7 +232,7 @@ export default class ParticlesJump {
 
     const btn = debug.addButton({
       title: 'Copy settings',
-      label: 'copy', // optional
+      label: 'copy',
     })
 
     btn.on('click', () => {

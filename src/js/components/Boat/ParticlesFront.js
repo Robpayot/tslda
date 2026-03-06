@@ -1,16 +1,40 @@
-import { BufferAttribute, BufferGeometry, Points, PointsMaterial } from 'three'
-import vertexShader from '@glsl/boat/particlesFront.vert'
-import CustomShaderMaterial from 'three-custom-shader-material/vanilla'
-import LoaderManager from '../../managers/LoaderManager'
+import {
+  InstancedBufferAttribute,
+  PlaneGeometry,
+  InstancedMesh,
+} from 'three'
+import { SpriteNodeMaterial } from 'three/webgpu'
+import {
+  Fn,
+  uniform,
+  float,
+  vec2,
+  vec3,
+  vec4,
+  texture,
+  uv,
+  attribute,
+  sin,
+  cos,
+  mod,
+  smoothstep,
+  distance,
+  If,
+  Discard,
+} from 'three/tsl'
 import { MathUtils } from 'three'
 const { degToRad, randFloat } = MathUtils
 import ControllerManager from '../../managers/ControllerManager'
 import { gsap } from 'gsap'
 import EnvManager from '../../managers/EnvManager'
+import LoaderManager from '../../managers/LoaderManager'
 import { BOAT_MODE } from '.'
 
 const MAX_OPACITY = 0.8
 const NB_PARTICLES = 2300
+const SPRITE_SCALE = 0.15
+const PI = Math.PI
+const INIT_Z = 6
 
 export default class ParticlesFront {
   #mesh
@@ -26,71 +50,103 @@ export default class ParticlesFront {
   jumpP = 0
 
   #debug
-  #initZ = 6
+  #initZ = INIT_Z
   maxSpeed = 1
-  constructor(parent, debug, scene) {
+
+  constructor(parent, debug) {
     this.#debug = debug
-    // Custom Material
 
-    // Particles in Front
-    // Create geometry
-    const geometry = new BufferGeometry()
-
-    let delayArray = []
-    let sizeArray = []
-    let positionArray = []
-    let angleArray = []
+    const positionArray = []
+    const delayArray = []
+    const sizeArray = []
+    const angleArray = []
 
     for (let i = 0; i < NB_PARTICLES; i++) {
       delayArray.push(Math.random() + 1)
       sizeArray.push(randFloat(0.6, 1.5))
-
-      positionArray[i * 3] = 0
-      positionArray[i * 3 + 1] = 0
-      positionArray[i * 3 + 2] = 1.6
-
-      angleArray[i] = degToRad(randFloat(5, 175))
+      positionArray.push(0, 0, 1.6)
+      angleArray.push(degToRad(randFloat(5, 175)))
     }
 
-    const position = new Float32Array(positionArray)
-    const delay = new Float32Array(delayArray)
-    const size = new Float32Array(sizeArray)
-    const angle = new Float32Array(angleArray)
+    const planeGeo = new PlaneGeometry(1, 1)
+    planeGeo.setAttribute(
+      'instancePosition',
+      new InstancedBufferAttribute(new Float32Array(positionArray), 3)
+    )
+    planeGeo.setAttribute(
+      'delay',
+      new InstancedBufferAttribute(new Float32Array(delayArray), 1)
+    )
+    planeGeo.setAttribute(
+      'aSize',
+      new InstancedBufferAttribute(new Float32Array(sizeArray), 1)
+    )
+    planeGeo.setAttribute(
+      'angle',
+      new InstancedBufferAttribute(new Float32Array(angleArray), 1)
+    )
 
-    // itemSize = 1 because there are 1 values (components) per vertex
-    geometry.setAttribute('position', new BufferAttribute(position, 3))
-    geometry.setAttribute('delay', new BufferAttribute(delay, 1))
-    geometry.setAttribute('aSize', new BufferAttribute(size, 1))
-    geometry.setAttribute('angle', new BufferAttribute(angle, 1))
+    // NOTE: In this project, `texture(...)` expects a real THREE.Texture (see Lightnings).
+    // Use LoaderManager.getTexture() so we always have a valid fallback texture.
+    const mapTexture = LoaderManager.getTexture('bubble')
+    const uTime = uniform(100)
+    const uDuration = uniform(this.#settings.uDuration)
+    const uForce = uniform(this.#settings.uForce)
+    const uCoefDelay = uniform(this.#settings.uCoefDelay)
+    const uCoefY = uniform(this.#settings.uCoefY)
+    const uActive = uniform(1)
+    const uOpacity = uniform(MAX_OPACITY)
 
-    const texture = LoaderManager.get('bubble').texture
+    const aPosition = attribute('instancePosition', 'vec3')
+    const aDelay = attribute('delay', 'float')
+    const aSize = attribute('aSize', 'float')
+    const aAngle = attribute('angle', 'float')
 
-    this.#material = new CustomShaderMaterial({
-      baseMaterial: PointsMaterial,
-      vertexShader,
-      // fragmentShader,
-      map: texture,
-      silent: true, // Disables the default warning if true
-      uniforms: {
-        uTime: { value: 100 },
-        uDuration: { value: this.#settings.uDuration },
-        uForce: { value: this.#settings.uForce },
-        uCoefDelay: { value: this.#settings.uCoefDelay },
-        uCoefY: { value: this.#settings.uCoefY },
-        uActive: { value: 1 },
-      },
-      // side: DoubleSide,
-      // TODO: depthTest / Write ?
+    const material = new SpriteNodeMaterial({
       transparent: true,
-      opacity: MAX_OPACITY,
-      // alphaTest: 0.6,
+      depthWrite: false,
     })
 
-    this.#mesh = new Points(geometry, this.#material)
+    material.positionNode = Fn(() => {
+      const offset = aDelay.mul(uCoefDelay)
+      const forceDir = uForce.mul(mod(uTime, uDuration.mul(offset)))
+      const phase = forceDir.div(offset).mul(float(PI).div(uDuration).div(uForce))
+      const animatedPos = vec3(
+        aPosition.x.add(cos(aAngle).mul(forceDir)),
+        aPosition.y.add(uCoefY.mul(sin(phase)).mul(aDelay)),
+        aPosition.z.add(sin(aAngle).mul(forceDir))
+      )
+      return animatedPos.mul(uActive)
+    })()
 
+    material.scaleNode = aSize.mul(uActive).mul(SPRITE_SCALE)
+
+    material.colorNode = Fn(() => {
+      const uvCoord = uv()
+      const dist = float(0.5).sub(distance(uvCoord, vec2(0.5)))
+      const circleMask = smoothstep(float(0.0), float(0.1), dist)
+      const texColor = texture(mapTexture, uvCoord)
+      const finalAlpha = circleMask.mul(texColor.a).mul(uOpacity)
+
+      If(finalAlpha.lessThan(0.05), () => {
+        Discard()
+      })
+
+      return vec4(texColor.rgb, finalAlpha)
+    })()
+
+    material.uTime = uTime
+    material.uActive = uActive
+    material.uOpacity = uOpacity
+    material.uDuration = uDuration
+    material.uForce = uForce
+    material.uCoefDelay = uCoefDelay
+    material.uCoefY = uCoefY
+
+    this.#mesh = new InstancedMesh(planeGeo, material, NB_PARTICLES)
+    this.#material = this.#mesh.material
     this.#mesh.position.z = this.#initZ
     this.#mesh.position.y = 0
-
     parent.add(this.#mesh)
 
     this._createDebugFolder()
@@ -100,8 +156,11 @@ export default class ParticlesFront {
     return this.#mesh
   }
 
-  update({ time, delta, velocity }) {
-    return // TSL migration: scene cleared
+  get material() {
+    return this.#material
+  }
+
+  update({ delta, velocity }) {
     if (ControllerManager.boat.up > 0) {
       this.#mesh.position.z -= ControllerManager.boat.velocity * ControllerManager.boat.speedTextureOffset
       if (!this.startJump) {
@@ -123,36 +182,36 @@ export default class ParticlesFront {
         this.tlJump?.kill()
         this.tlJumpFinish = gsap.fromTo(
           this,
-          {
-            jumpP: 1,
-          },
-          {
-            jumpP: 0,
-            duration: 0.5,
-          }
+          { jumpP: 1 },
+          { jumpP: 0, duration: 0.5 }
         )
       }
     }
 
     const progress = velocity * (1 - this.jumpP) * this.maxSpeed
 
-    this.#material.uniforms.uTime.value += (delta / 16) * this.#settings.uSpeed
-    this.#material.uniforms.uActive.value = progress
-    this.#material.opacity = MAX_OPACITY * Math.min(1, EnvManager.settingsOcean.foam)
-    this.#material.alphaTest = this.#material.opacity - 0.05
+    this.#material.uTime.value += (delta / 16) * this.#settings.uSpeed
+    this.#material.uActive.value = progress
+    this.#material.uOpacity.value = MAX_OPACITY * Math.min(1, EnvManager.settingsOcean.foam)
+    this.#material.alphaTest = this.#material.uOpacity.value - 0.05
   }
 
-  /**
-   * Debug
-   */
+  transitioningSpeed(mode) {
+    if (mode === BOAT_MODE.HOOK) {
+      gsap.to(this, { maxSpeed: 0.2, duration: 1.5 })
+    } else {
+      gsap.to(this, { maxSpeed: 1, duration: 1.5 })
+    }
+  }
+
   _createDebugFolder() {
     if (!this.#debug) return
 
     const settingsChangedHandler = () => {
-      this.#material.uniforms.uDuration.value = this.#settings.uDuration
-      this.#material.uniforms.uForce.value = this.#settings.uForce
-      this.#material.uniforms.uCoefDelay.value = this.#settings.uCoefDelay
-      this.#material.uniforms.uCoefY.value = this.#settings.uCoefY
+      this.#material.uDuration.value = this.#settings.uDuration
+      this.#material.uForce.value = this.#settings.uForce
+      this.#material.uCoefDelay.value = this.#settings.uCoefDelay
+      this.#material.uCoefY.value = this.#settings.uCoefY
     }
 
     const debug = this.#debug.addFolder({ title: 'Splash Front', expanded: false })
@@ -166,7 +225,7 @@ export default class ParticlesFront {
 
     const btn = debug.addButton({
       title: 'Copy settings',
-      label: 'copy', // optional
+      label: 'copy',
     })
 
     btn.on('click', () => {
@@ -175,13 +234,5 @@ export default class ParticlesFront {
     })
 
     return debug
-  }
-
-  transitioningSpeed(mode) {
-    if (mode === BOAT_MODE.HOOK) {
-      gsap.to(this, { maxSpeed: 0.2, duration: 1.5 })
-    } else {
-      gsap.to(this, { maxSpeed: 1, duration: 1.5 })
-    }
   }
 }

@@ -105,15 +105,15 @@ export default class Boat {
     this.#particlesJumpMesh = this._createParticlesJumpMesh()
     // this.#craneMesh = this._createCraneMesh()
 
-    this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
+    // this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
 
-    // events
-    EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
-    EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
-    EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
-    EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
-    EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
-    EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
+    // // events
+    // EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
+    // EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
+    // EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
+    // EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
+    // EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
+    // EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
 
     const s = 0.25
     this.sailMesh.mesh.scale.set(s, this.sailMesh.mesh.scale.y, this.sailMesh.mesh.scale.z)
@@ -341,15 +341,15 @@ export default class Boat {
 
     this.#mesh.position.y = ControllerManager.boat.up
 
-    // if (absTurnForce > 0) {
-
+    // Boat spray particles
     if (ControllerManager.stopped) {
-      this.#particleSideMesh.mesh.visible = false
-      this.#particlesFrontMesh.mesh.visible = false
-      this.#particlesJumpMesh.mesh.visible = false
+      if (this.#particleSideMesh) this.#particleSideMesh.mesh.visible = false
+      if (this.#particlesFrontMesh) this.#particlesFrontMesh.mesh.visible = false
+      if (this.#particlesJumpMesh) this.#particlesJumpMesh.mesh.visible = false
       this.canShowP = false
     } else {
-      let progessP = ControllerManager.boat.velocityP
+      const progessP = ControllerManager.boat.velocityP
+
       this.#particleSideMesh?.update({
         time,
         delta,
@@ -381,8 +381,6 @@ export default class Boat {
         }, 500)
       }
     }
-
-    // }
 
     if (ControllerManager.boat.velocityP > 0.1) {
       let boatAngle = ControllerManager.boat.angleDir % (Math.PI * 2)
