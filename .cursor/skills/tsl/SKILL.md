@@ -561,6 +561,20 @@ Pass `uSunDir` as `uniform(light.position)` (reference, not clone) so updates ar
     .colorNode      // vec4 - color and alpha
     .sizeNode       // float - point size in pixels
 
+### Converting Points / point-like particles (use SpriteNodeMaterial, no billboardToCamera)
+
+When converting a material that uses `new Points()` or point-like billboarded particles to TSL, use **SpriteNodeMaterial** so billboarding is handled by the material and **no `billboardToCamera`** is needed:
+
+1. **Geometry:** `PlaneGeometry(1, 1)` with `setAttribute('instancePosition', new InstancedBufferAttribute(positionArray, 3))` and any other per-instance attributes (e.g. `offset`, `speed`).
+2. **Material:** `SpriteNodeMaterial` with:
+   - `positionNode = attribute('instancePosition', 'vec3')` (or add displacement, e.g. heightmap, in the same Fn)
+   - `scaleNode = float(SPRITE_SCALE)` or a uniform
+   - `colorNode` = your fragment logic (use `uv()` instead of `gl_PointCoord`)
+3. **Mesh:** `new InstancedMesh(planeGeo, material, count)` — no `setMatrixAt`, no manual instance matrices.
+4. **API:** Keep a no-op `billboardToCamera()` if callers still invoke it, to avoid breaking changes.
+
+Examples in this project: **Stars**, **Lightnings**, **Waves**.
+
 ---
 
 ## Compute Shaders
@@ -951,9 +965,13 @@ Required imports for this pattern:
 
 WebGPU does not support `gl_PointCoord` or variable `gl_PointSize` like WebGL. **`PointsNodeMaterial.sizeNode` has no effect** — points render as 1×1 pixel regardless. When converting `Points`-based effects:
 
+**Preferred:** Use **SpriteNodeMaterial** with `InstancedMesh` + `PlaneGeometry(1, 1)` and `InstancedBufferAttribute` for `instancePosition` (see "Converting Points / point-like particles" above). Billboarding is then automatic; no CPU `billboardToCamera` or `setMatrixAt` needed.
+
+If you cannot use SpriteNodeMaterial:
+
 1. Replace `Points` with `InstancedMesh` using `PlaneGeometry(1, 1)`.
 2. Replace `gl_PointCoord` with `uv()`.
-3. Use `instanceIndex` for per-instance variation instead of custom attributes (more reliable in WebGPU). Use `hash(instanceIndex)` for pseudo-random per-instance values.
+3. Use `instanceIndex` or `InstancedBufferAttribute` for per-instance variation. Use `hash(instanceIndex)` for pseudo-random per-instance values.
 4. Billboard rotation must be done on CPU (update instance matrices each frame with `lookAt` toward camera).
 5. When billboarding on CPU, UV Y may need flipping: `float(1).sub(uv().y)`.
 6. For transparent instances, sort back-to-front by camera depth each frame.

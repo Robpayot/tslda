@@ -562,6 +562,20 @@ Pass `uSunDir` as `uniform(light.position)` (reference, not clone) so updates ar
     .colorNode      // vec4 - color and alpha
     .sizeNode       // float - point size in pixels
 
+### Converting Points / point-like particles (use SpriteNodeMaterial, no billboardToCamera)
+
+When converting a material that uses `new Points()` or point-like billboarded particles to TSL, use **SpriteNodeMaterial** so billboarding is handled by the material and **no `billboardToCamera`** is needed:
+
+1. **Geometry:** `PlaneGeometry(1, 1)` with `setAttribute('instancePosition', new InstancedBufferAttribute(positionArray, 3))` and any other per-instance attributes (e.g. `offset`, `speed`).
+2. **Material:** `SpriteNodeMaterial` with:
+   - `positionNode = attribute('instancePosition', 'vec3')` (or add displacement, e.g. heightmap, in the same Fn)
+   - `scaleNode = float(SPRITE_SCALE)` or a uniform
+   - `colorNode` = your fragment logic (use `uv()` instead of `gl_PointCoord`)
+3. **Mesh:** `new InstancedMesh(planeGeo, material, count)` — no `setMatrixAt`, no manual instance matrices.
+4. **API:** Keep a no-op `billboardToCamera()` if callers still invoke it, to avoid breaking changes.
+
+Examples in this project: **Stars**, **Lightnings**, **Waves**.
+
 ---
 
 ## Compute Shaders

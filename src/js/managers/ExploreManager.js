@@ -558,17 +558,18 @@ class ExploreManager {
 
     // waves
     if (EnvManager.settingsOcean.alphaWaves > 0) {
-      this.#waves.billboardToCamera(this.camera)
       this.#waves.material.uTime.value += (delta / 16) * 0.1
       this.#waves.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaWaves
 
       this.#waves.mesh.position.x = this.#waves.mesh.initPos.x - playerX
       this.#waves.mesh.position.z = this.#waves.mesh.initPos.z + playerZ
+      if (this.#waves.material.uMeshPosition) {
+        this.#waves.material.uMeshPosition.value.copy(this.#waves.mesh.position)
+      }
     }
 
 
     if (EnvManager.settingsOcean.alphaLightnings > 0) {
-      this.#lightnings.billboardToCamera(this.camera)
       this.#lightnings.material.uTime.value += (delta / 16) * 0.1
       this.#lightnings.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaLightnings
 
@@ -580,7 +581,6 @@ class ExploreManager {
 
     // stars
     if (EnvManager.settings.alphaStars > 0) {
-      this.#stars.billboardToCamera(this.camera)
       this.#stars.material.uTime.value += (delta / 16) * 0.1
       this.#stars.material.uGlobalOpacity.value = EnvManager.settings.alphaStars
     }
