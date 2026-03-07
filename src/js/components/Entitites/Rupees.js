@@ -59,6 +59,7 @@ export default class Rupees {
       scaleOcean: { value: SCALE_OCEAN },
     }
 
+
     const mat1 = new ShaderMaterial({
       vertexShader: vertexToonHeighmapShader,
       fragmentShader: fragmentRupeeShader,

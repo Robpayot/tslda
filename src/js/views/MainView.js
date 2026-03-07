@@ -63,7 +63,7 @@ export default class MainView {
     ModeManager.addCamera(this.#cameraManager)
 
     // TSL migration: disabled — re-enable after conversion
-    // this.#components.boat?.initTreasures()
+    this.#components.boat?.initTreasures()
 
     // set up shadowmap on meshes (skipped while scene is empty)
     // this.#scene.traverse((object) => {

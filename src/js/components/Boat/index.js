@@ -27,7 +27,7 @@ import Crane from './crane/Crane'
 import ExploreManager from '../../managers/ExploreManager'
 import Rupees from '../Entitites/Rupees'
 import { LIGHT_RING_TYPE } from '../Entitites/LightRing'
-import TriforceShards from '../Entitites/TriforceShards'
+import TriforceShards from '../Entitites/triforceShards/TriforceShards'
 
 export const BOAT_MODE = {
   SAIL: 'sail',
