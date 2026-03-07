@@ -155,3 +155,58 @@ export function createToonMaterialWithColor(getBaseColorNode, options = {}) {
 
   return material
 }
+
+/**
+ * Creates a toon material with optional alpha from map and/or UV cut (e.g. islands.frag).
+ * Used by Islands. smoothstepMax 0.5 matches islands.frag.
+ *
+ * @param {THREE.Texture} [mapTexture] - Diffuse map; falls back to LoaderManager.defaultTexture if null/undefined.
+ * @param {{ smoothstepMax?: number, useAlphaMap?: boolean, useAlphaMapCutY?: boolean }} [options]
+ *   - smoothstepMax: toon edge (default 0.5 for islands)
+ *   - useAlphaMap: use texture alpha, transparent, alphaTest 0.05 (USE_ALPHAMAP)
+ *   - useAlphaMapCutY: discard/mask when uv.y < 0.05 (USE_ALPHAMAP_CUTY)
+ * @returns {NodeMaterial}
+ */
+export function createToonMaterialWithAlpha(mapTexture, options = {}) {
+  const {
+    smoothstepMax = 0.5,
+    useAlphaMap = false,
+    useAlphaMapCutY = false,
+  } = options
+
+  const mapTex = mapTexture ?? LoaderManager.defaultTexture
+  const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
+  const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
+  const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
+  const uSRGBSpace = uniform(0)
+
+  const shadingNode = buildToonShadingNode({
+    uSunDir,
+    uAmbientColor,
+    uCoefShadow,
+    uSRGBSpace,
+    smoothstepMax,
+    ambientMul: 1,
+  })
+
+  const colorFn = Fn(() => {
+    const tex = texture(mapTex, uv())
+    const finalShading = shadingNode()
+    let alpha = float(1.0)
+    if (useAlphaMap) alpha = tex.a
+    if (useAlphaMapCutY) alpha = alpha.mul(step(float(0.05), uv().y))
+    return vec4(tex.rgb.mul(finalShading), alpha)
+  })
+
+  const material = new NodeMaterial()
+  material.name = 'toon'
+  material.colorNode = colorFn()
+  material.uSunDir = uSunDir
+  material.uAmbientColor = uAmbientColor
+  material.uCoefShadow = uCoefShadow
+  if (useAlphaMap || useAlphaMapCutY) {
+    material.transparent = true
+    if (useAlphaMap) material.alphaTest = 0.05
+  }
+  return material
+}

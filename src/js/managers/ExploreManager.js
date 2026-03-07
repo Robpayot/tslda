@@ -159,7 +159,6 @@ class ExploreManager {
     this.#stars = new Stars()
     this.#parent.add(this.#stars.mesh)
 
-    return
 
 
     // entities
@@ -585,7 +584,6 @@ class ExploreManager {
       this.#stars.material.uGlobalOpacity.value = EnvManager.settings.alphaStars
     }
 
-    return
 
 
     // Entities

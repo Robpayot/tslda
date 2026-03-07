@@ -1,10 +1,6 @@
-import { Object3D, ShaderMaterial, Vector2, Vector3 } from 'three'
-import EnvManager from '../../managers/EnvManager'
+import { Object3D, Vector2, Vector3 } from 'three'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonShader from '@glsl/partials/toonWorld.vert'
-import fragmentIslandShader from '@glsl/game/islands.frag'
+import { createToonMaterialWithAlpha } from '../../tsl-nodes/toon'
 import { SCALE_OCEAN } from '../Ocean'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
@@ -17,7 +13,7 @@ export default class Islands {
   #scale = 130 // 130
   #LODRatio = 30
   #LODScale = 12
-  #farRadius = 2.5 // 3
+  #farRadius = 2.5 // 2.5 // 3
   #islands = []
   #settings = {
     border: 0.091,
@@ -214,21 +210,11 @@ export default class Islands {
 
           collisions.push({ pos: object.position, bb, worldPos: pos, radius, shape, polyShape })
         } else {
-          material = new ShaderMaterial({
-            vertexShader: vertexToonShader,
-            fragmentShader: fragmentIslandShader,
-            uniforms: {
-              ambientColor: { value: EnvManager.ambientLight.color },
-              coefShadow: { value: EnvManager.settings.coefShadow },
-              map: { value: object.material.map },
-            },
-            // transparent: object.name.includes('alpha'),
-            defines: {
-              USE_BONES: object.type === 'SkinnedMesh',
-              USE_ALPHAMAP: object.name.includes('alpha'),
-              USE_ALPHAMAP_CUTY: object.name.includes('cutY'),
-            },
-            name: 'toon',
+          const mapTexture = object.material?.map ?? null
+          material = createToonMaterialWithAlpha(mapTexture, {
+            smoothstepMax: 0.5,
+            useAlphaMap: object.name.includes('alpha'),
+            useAlphaMapCutY: object.name.includes('cutY'),
           })
         }
 
