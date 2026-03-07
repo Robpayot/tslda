@@ -1,18 +1,15 @@
-import { AnimationMixer, LoopOnce, MeshBasicMaterial, ShaderMaterial, Vector2 } from 'three'
+import { AnimationMixer, LoopOnce, Vector2 } from 'three'
 import LoaderManager from '@/js/managers/LoaderManager'
-import ControllerManager from '@/js/managers/ControllerManager'
 import EnvManager from '@/js/managers/EnvManager'
+import ControllerManager from '@/js/managers/ControllerManager'
 import { EventBusSingleton } from 'light-event-bus'
 
-// Shaders
-import vertexToonShader from '@glsl/partials/toon.vert'
-import fragmentToonShader from '@glsl/partials/toon.frag'
-// Receive shadows
-import vertexReceiveShadowShader from '@glsl/shadows/receiveShadow.vert'
-import fragmentReceiveShadowShader from '@glsl/shadows/receiveShadow.frag'
-
-import fragmentShaderPupil from '@glsl/link/pupil.frag'
-import fragmentShaderMouth from '@glsl/link/mouth.frag'
+import {
+  createLinkToonMaterial,
+  createLinkReceiveShadowMaterial,
+  createPupilMaterial,
+  createLinkBasicMaterial,
+} from './LinkMaterials'
 import {
   CLOSE_TREASURE,
   CUSTOM_LINK,
@@ -23,7 +20,6 @@ import {
   START_CAMERA_TREASURE_FOUND,
   TRIFORCE_FOUND,
 } from '../../utils/constants'
-import Settings from '../../utils/Settings'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import SoundManager, { SOUNDS_CONST } from '../../managers/SoundManager'
@@ -185,7 +181,8 @@ export default class Link {
       arrMouth = this.#darkMouthTextures
     }
     this.#mouthIndex = 5
-    this.#mouth.material.uniforms.map.value = arrMouth[this.#mouthIndex]
+    this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
+    this.#mouth.material.uSRGBSpace.value = 1
   }
 
   _resetTreasureAnimation = () => {
@@ -205,7 +202,8 @@ export default class Link {
       arrMouth = this.#darkMouthTextures
     }
     this.#mouthIndex = 0
-    this.#mouth.material.uniforms.map.value = arrMouth[this.#mouthIndex]
+    this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
+    this.#mouth.material.uSRGBSpace.value = 1
   }
 
   _createMaterials() {
@@ -220,281 +218,95 @@ export default class Link {
     this.#shield = this.#mesh.getObjectByName('link-shield')
     this.#masterAndShield = this.#mesh.getObjectByName('link-master-sword-shield')
 
-    // replace materials with custom Toon
+    // replace materials with TSL toon / receive shadow
+    const receiveShadowNames = [
+      'link-arms-bassin',
+      'link-body-ears',
+      'link-hair',
+      'link-head',
+      'link-hat',
+    ]
     this.#mesh.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
-        const textureOg = child.material.map
-        child.material = new ShaderMaterial({
-          vertexShader: vertexToonShader,
-          fragmentShader: fragmentToonShader,
-          uniforms: {
-            map: { value: textureOg },
-            sunDir: { value: EnvManager.sunDir.position },
-            ambientColor: { value: EnvManager.ambientLight.color },
-            coefShadow: { value: EnvManager.settings.coefShadow },
-            sRGBSpace: {
-              value: 0,
-            },
-          },
-          defines: {
-            USE_BONES: child.type === 'SkinnedMesh',
-          },
-          name: 'toon',
-        })
-
-        // cast Shadows for main body + hat
-
-        if (
-          child.name === 'link-arms-bassin' ||
-          child.name === 'link-body-ears' ||
-          child.name === 'link-arms-bassin' ||
-          child.name === 'link-hair' ||
-          child.name === 'link-head' ||
-          child.name === 'link-hat'
-        ) {
+        const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
+        if (receiveShadowNames.includes(child.name)) {
           child.castCustomShadow = true
-          // add receive shadows
-          child.material = new ShaderMaterial({
-            vertexShader: vertexReceiveShadowShader,
-            fragmentShader: fragmentReceiveShadowShader,
-            uniforms: {
-              map: { value: textureOg },
-              sunDir: { value: EnvManager.sunDir.position },
-              ambientColor: { value: EnvManager.ambientLight.color },
-              coefShadow: { value: EnvManager.settings.coefShadow },
-              // receive shadows
-              uDepthMap: {
-                value: null, // EnvManager.sunShadowMap.map.texture,
-              },
-              uShadowCameraP: {
-                value: EnvManager.sunShadowMap.camera.projectionMatrix,
-              },
-              uShadowCameraV: {
-                value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-              },
-              sRGBSpace: {
-                value: 0,
-              },
-            },
-            defines: {
-              USE_BONES: child.type === 'SkinnedMesh',
-              USE_SHADOWS: Settings.castShadows,
-            },
-            name: 'toon',
-          })
+          child.material = createLinkReceiveShadowMaterial(mapTexture)
+        } else {
+          child.material = createLinkToonMaterial(mapTexture)
         }
       }
     })
 
-    // replace materials with custom Toon
-    // SHield
-    const textureShield = this.#shield.material.map
+    // Shield: receive shadow
+    const textureShield = this.#shield.material?.map ?? LoaderManager.defaultTexture
     this.#shield.castCustomShadow = true
+    this.#shield.material = createLinkReceiveShadowMaterial(textureShield)
 
-    // this.#shield.visible = false
-    // this.#shield.canVisible = false
-    // add receive shadows
-    this.#shield.material = new ShaderMaterial({
-      vertexShader: vertexReceiveShadowShader,
-      fragmentShader: fragmentReceiveShadowShader,
-      uniforms: {
-        map: { value: textureShield },
-        sunDir: { value: EnvManager.sunDir.position },
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        // receive shadows
-        uDepthMap: {
-          value: null, // EnvManager.sunShadowMap.map.texture,
-        },
-        uShadowCameraP: {
-          value: EnvManager.sunShadowMap.camera.projectionMatrix,
-        },
-        uShadowCameraV: {
-          value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-        },
-        sRGBSpace: {
-          value: 0,
-        },
-      },
-      defines: {
-        USE_BONES: this.#shield.type === 'SkinnedMesh',
-        USE_SHADOWS: Settings.castShadows,
-      },
-      name: 'toon',
-    })
-
-    // Master SHield and sword
+    // Master shield and sword
     this.#masterAndShield.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
-        const textureOg = child.material.map
+        const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
         child.castCustomShadow = true
-        // add receive shadows
-        child.material = new ShaderMaterial({
-          vertexShader: vertexReceiveShadowShader,
-          fragmentShader: fragmentReceiveShadowShader,
-          uniforms: {
-            map: { value: textureOg },
-            sunDir: { value: EnvManager.sunDir.position },
-            ambientColor: { value: EnvManager.ambientLight.color },
-            coefShadow: { value: EnvManager.settings.coefShadow },
-            // receive shadows
-            uDepthMap: {
-              value: null, // EnvManager.sunShadowMap.map.texture,
-            },
-            uShadowCameraP: {
-              value: EnvManager.sunShadowMap.camera.projectionMatrix,
-            },
-            uShadowCameraV: {
-              value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-            },
-            sRGBSpace: {
-              value: 0,
-            },
-          },
-          defines: {
-            USE_BONES: child.type === 'SkinnedMesh',
-            USE_SHADOWS: Settings.castShadows,
-          },
-          name: 'toon',
-        })
+        child.material = createLinkReceiveShadowMaterial(mapTexture)
       }
     })
 
     this.#masterAndShield.visible = false
     this.#masterAndShield.canVisible = false
 
-    // eyebrow left
+    // Eyebrows and eyes: basic transparent with updatable map
     const texEyebrowLeft = LoaderManager.get('eyebrow-1').texture
     texEyebrowLeft.flipY = false
-    eyebrowLeft.material = new MeshBasicMaterial({
-      map: texEyebrowLeft,
-      transparent: true,
-      // visible: false,
-    })
-
-    // eyebrowRight
-    eyebrowRight.material = new MeshBasicMaterial({
-      map: texEyebrowLeft,
-      transparent: true,
-      // visible: false,
-    })
+    eyebrowLeft.material = createLinkBasicMaterial(texEyebrowLeft)
+    eyebrowRight.material = createLinkBasicMaterial(texEyebrowLeft)
 
     for (let i = 0; i < NB_EYES; i++) {
-      const texture = LoaderManager.get(`eye-${i + 1}`).texture
-      texture.flipY = false
-      this.#eyesTextures.push(texture)
+      const tex = LoaderManager.get(`eye-${i + 1}`).texture
+      tex.flipY = false
+      this.#eyesTextures.push(tex)
     }
 
-    // eye left
-    eyeLeft.material = new MeshBasicMaterial({
-      map: this.#eyesTextures[this.#eyeLeftIndex],
-      transparent: true,
-      // visible: false,
-    })
-
+    eyeLeft.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeLeftIndex])
     eyeLeft.renderOrder = 1
-
     this.#eyeLeft = eyeLeft
-    // eyeLeft.visible = false
 
-    eyeRight.material = new MeshBasicMaterial({
-      map: this.#eyesTextures[this.#eyeRightIndex],
-      transparent: true,
-      // visible: false,
-    })
-
+    eyeRight.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeRightIndex])
     eyeRight.renderOrder = 1
-
     this.#eyeRight = eyeRight
 
+    // Pupils: toon + UV transform + mask
     const texPupil = LoaderManager.get('pupil').texture
     texPupil.flipY = false
-
-    pupilLeft.material = new ShaderMaterial({
-      vertexShader: vertexToonShader,
-      fragmentShader: fragmentShaderPupil,
-      uniforms: {
-        map: { value: texPupil },
-        uMask: { value: this.#eyesTextures[this.#eyeLeftIndex] },
-        uDir: { value: new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY) },
-        uScale: { value: this.#settings.pupil.scale },
-        uFLip: { value: -1 },
-        sunDir: { value: EnvManager.sunDir.position },
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-      },
-      transparent: true,
-      defines: {
-        USE_BONES: true,
-      },
-      name: 'toon',
-    })
-
+    pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+    pupilLeft.material.uFlip.value = -1
+    pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+    pupilLeft.material.uScale.value = this.#settings.pupil.scale
     pupilLeft.renderOrder = 100
 
-    pupilRight.material = new ShaderMaterial({
-      vertexShader: vertexToonShader,
-      fragmentShader: fragmentShaderPupil,
-      uniforms: {
-        map: { value: texPupil },
-        uMask: { value: this.#eyesTextures[this.#eyeRightIndex] },
-        uDir: { value: new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY) },
-        uScale: { value: this.#settings.pupil.scale },
-        uFLip: { value: 1 },
-        sunDir: { value: EnvManager.sunDir.position },
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-      },
-      transparent: true,
-      defines: {
-        USE_BONES: true,
-      },
-      name: 'toon',
-    })
-
+    pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex])
+    pupilRight.material.uFlip.value = 1
+    pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+    pupilRight.material.uScale.value = this.#settings.pupil.scale
     pupilRight.renderOrder = 100
 
     this.#pupilLeft = pupilLeft
     this.#pupilRight = pupilRight
 
+    // Mouth textures: no colorSpace so sampled as-is (match WebGL mouth.frag: map used raw, shading in sRGB)
     for (let i = 0; i < NB_MOUTH; i++) {
-      const texture = LoaderManager.get(`mouth${i + 1}`).texture
-      texture.flipY = false
-      this.#mouthTextures.push(texture)
+      const tex = LoaderManager.get(`mouth${i + 1}`).texture
+      tex.flipY = false
+      this.#mouthTextures.push(tex)
+    }
+    for (let i = 0; i < NB_MOUTH; i++) {
+      const tex = LoaderManager.get(`dark-mouth${i + 1}`).texture
+      tex.flipY = false
+      this.#darkMouthTextures.push(tex)
     }
 
-    for (let i = 0; i < NB_MOUTH; i++) {
-      const texture = LoaderManager.get(`dark-mouth${i + 1}`).texture
-      texture.flipY = false
-      this.#darkMouthTextures.push(texture)
-    }
-
-    this.#mouth.material = new ShaderMaterial({
-      vertexShader: vertexReceiveShadowShader,
-      fragmentShader: fragmentShaderMouth,
-      uniforms: {
-        map: { value: this.#mouthTextures[this.#mouthIndex] },
-        sunDir: { value: EnvManager.sunDir.position },
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        // receive shadows
-        uDepthMap: {
-          value: null, // EnvManager.sunShadowMap.map.texture,
-        },
-        uShadowCameraP: {
-          value: EnvManager.sunShadowMap.camera.projectionMatrix,
-        },
-        uShadowCameraV: {
-          value: EnvManager.sunShadowMap.camera.matrixWorldInverse,
-        },
-      },
-      defines: {
-        USE_BONES: true,
-        USE_SHADOWS: Settings.castShadows,
-      },
-      name: 'toon',
-    })
-
+    this.#mouth.material = createLinkReceiveShadowMaterial(this.#mouthTextures[this.#mouthIndex])
+    this.#mouth.material.uSRGBSpace.value = 1 // match WebGL mouth.frag: shading in sRGB
     this.#mouth.receiveCustomShadow = true
   }
 
@@ -520,7 +332,8 @@ export default class Link {
         this.#mouthIndex = 0
       }
 
-      this.#mouth.material.uniforms.map.value = arrMouth[this.#mouthIndex]
+      this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
+      this.#mouth.material.uSRGBSpace.value = 1
 
       el.innerHTML = this.#mouthIndex + 1
     } else if (type === 'eye-left') {
@@ -531,8 +344,12 @@ export default class Link {
         this.#eyeLeftIndex = 0
       }
 
-      this.#eyeLeft.material.map = this.#eyesTextures[this.#eyeLeftIndex]
-      this.#pupilLeft.material.uniforms.uMask.value = this.#eyesTextures[this.#eyeLeftIndex]
+      this.#eyeLeft.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeLeftIndex])
+      const texPupil = LoaderManager.get(this.#isDark ? 'dark_pupil' : 'pupil').texture
+      this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+      this.#pupilLeft.material.uFlip.value = -1
+      this.#pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+      this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
 
       el.innerHTML = this.#eyeLeftIndex + 1
     } else if (type === 'eye-right') {
@@ -543,8 +360,12 @@ export default class Link {
         this.#eyeRightIndex = 0
       }
 
-      this.#eyeRight.material.map = this.#eyesTextures[this.#eyeRightIndex]
-      this.#pupilRight.material.uniforms.uMask.value = this.#eyesTextures[this.#eyeRightIndex]
+      this.#eyeRight.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeRightIndex])
+      const texPupilR = LoaderManager.get(this.#isDark ? 'dark_pupil' : 'pupil').texture
+      this.#pupilRight.material = createPupilMaterial(texPupilR, this.#eyesTextures[this.#eyeRightIndex])
+      this.#pupilRight.material.uFlip.value = 1
+      this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+      this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
 
       el.innerHTML = this.#eyeRightIndex + 1
     }
@@ -560,31 +381,48 @@ export default class Link {
     texPupil.flipY = false
     texPupil.needsUpdate = true
 
+    const receiveShadowNames = [
+      'link-arms-bassin',
+      'link-body-ears',
+      'link-hair',
+      'link-head',
+      'link-hat',
+    ]
+    const darkBodyNames = [
+      'link-arms-bassin',
+      'link-belt',
+      'link-body-ears',
+      'link-hair',
+      'link-handLeft',
+      'link-handRight',
+      'link-hat',
+      'link-head',
+      'link-legs',
+      'link-nose',
+    ]
     this.#mesh.children.forEach((child) => {
-      if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
-        if (
-          child.name === 'link-arms-bassin' ||
-          child.name === 'link-belt' ||
-          child.name === 'link-body-ears' ||
-          child.name === 'link-hair' ||
-          child.name === 'link-handLeft' ||
-          child.name === 'link-handRight' ||
-          child.name === 'link-hat' ||
-          child.name === 'link-head' ||
-          child.name === 'link-legs' ||
-          child.name === 'link-nose'
-        ) {
-          if (child.material.uniforms) {
-            child.material.uniforms.map.value = darkTunic
-            child.material.uniforms.sRGBSpace.value = 1
-          }
-        }
+      if ((child.type === 'SkinnedMesh' || child.type === 'Mesh') && darkBodyNames.includes(child.name)) {
+        const mat = receiveShadowNames.includes(child.name)
+          ? createLinkReceiveShadowMaterial(darkTunic)
+          : createLinkToonMaterial(darkTunic)
+        mat.uSRGBSpace.value = 1
+        child.material = mat
       }
     })
 
-    this.#mouth.material.uniforms.map.value = this.#darkMouthTextures[this.#mouthIndex]
-    this.#pupilLeft.material.uniforms.map.value = texPupil
-    this.#pupilRight.material.uniforms.map.value = texPupil
+    this.#mouth.material = createLinkReceiveShadowMaterial(this.#darkMouthTextures[this.#mouthIndex])
+    this.#mouth.material.uSRGBSpace.value = 1
+    this.#mouth.receiveCustomShadow = true
+
+    this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+    this.#pupilLeft.material.uFlip.value = -1
+    this.#pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+    this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
+
+    this.#pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex])
+    this.#pupilRight.material.uFlip.value = 1
+    this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+    this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
   }
 
   _setMaster = () => {
@@ -602,11 +440,9 @@ export default class Link {
    * Update
    */
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     this.#mixer?.update(0.07)
     this.#mixerShield?.update(0.07)
     this.#mixerMaster?.update(0.07)
-    // this.hatBone.rotation.y = Math.sin(time * 0.8)
 
     this.hatBoneA.rotation.z = this.hatBoneARotZ + 0.88 * ControllerManager.boat.velocityP
     this.hatBoneB.rotation.z = Math.sin(time * 10) * 0.3 * ControllerManager.boat.velocityP
@@ -615,8 +451,34 @@ export default class Link {
     this.hair1A.rotation.z = Math.sin(time * 20) * 0.3 * ControllerManager.boat.velocityP
     this.hair2A.rotation.z = Math.sin(time * 15) * 0.4 * ControllerManager.boat.velocityP
 
-    this.#pupilRight.material.uniforms.uDir.value = new Vector2(ControllerManager.boat.turnForce * 0.8, 0)
-    this.#pupilLeft.material.uniforms.uDir.value = new Vector2(ControllerManager.boat.turnForce * 0.8, 0)
+    const pupilDir = new Vector2(ControllerManager.boat.turnForce * 0.8, 0)
+    this.#pupilRight.material.uDir.value = pupilDir
+    this.#pupilLeft.material.uDir.value = pupilDir
+
+    // Sync env uniforms so sunDir and shadow camera stay correct (like WebGL uniforms)
+    this._syncLinkEnvUniforms(this.#mesh)
+    this._syncLinkEnvUniforms(this.#shield)
+    this._syncLinkEnvUniforms(this.#masterAndShield)
+    if (this.#mouth?.material?.uSunDir) {
+      this._syncMaterialEnvUniforms(this.#mouth.material)
+    }
+  }
+
+  _syncLinkEnvUniforms(object) {
+    if (!object) return
+    object.traverse((child) => {
+      if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
+        if (child.material?.uSunDir) this._syncMaterialEnvUniforms(child.material)
+      }
+    })
+  }
+
+  _syncMaterialEnvUniforms(material) {
+    if (EnvManager.sunDir?.position) material.uSunDir.value = EnvManager.sunDir.position
+    if (material.uAmbientColor && EnvManager.ambientLight?.color) material.uAmbientColor.value = EnvManager.ambientLight.color
+    if (material.uCoefShadow != null && EnvManager.settings?.coefShadow != null) material.uCoefShadow.value = EnvManager.settings.coefShadow
+    if (material.uShadowCameraP && EnvManager.sunShadowMap?.camera?.projectionMatrix) material.uShadowCameraP.value = EnvManager.sunShadowMap.camera.projectionMatrix
+    if (material.uShadowCameraV && EnvManager.sunShadowMap?.camera?.matrixWorldInverse) material.uShadowCameraV.value = EnvManager.sunShadowMap.camera.matrixWorldInverse
   }
 
   resize({ width, height }) {}
@@ -628,18 +490,18 @@ export default class Link {
     if (!this.#debug) return
 
     const settingsChangedHandler = () => {
-      this.#pupilLeft.material.uniforms.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
-      this.#pupilRight.material.uniforms.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
-      this.#pupilLeft.material.uniforms.uScale.value = this.#settings.pupil.scale
-      this.#pupilRight.material.uniforms.uScale.value = this.#settings.pupil.scale
+      const dir = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
+      this.#pupilLeft.material.uDir.value = dir
+      this.#pupilRight.material.uDir.value = dir
+      this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
+      this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
 
       if (this.#settings.pupil.switchMouth) {
-        let texture = LoaderManager.get('mouth7').texture
-
-        this.#mouth.material.uniforms.map.value = texture
+        this.#mouth.material = createLinkReceiveShadowMaterial(LoaderManager.get('mouth7').texture)
       } else {
-        this.#mouth.material.uniforms.map.value = LoaderManager.get('mouth1').texture
+        this.#mouth.material = createLinkReceiveShadowMaterial(LoaderManager.get('mouth1').texture)
       }
+      this.#mouth.material.uSRGBSpace.value = 1
     }
 
     const debug = this.#debug.addFolder({ title: 'Link', expanded: false })

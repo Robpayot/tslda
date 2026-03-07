@@ -45,11 +45,12 @@ TSL is JavaScript that builds shader node graphs. Code executes at TWO times:
 
 - Please comment anything related to shadow casting for now
 
-- Please run `npm run dev` and check for JS errors after conversion.
+- **Verification (mandatory):** After any TSL or material change, run `npm run dev`, open the app in the browser, and check the console for errors. Fix any errors before considering the task done.
 
 - To avoid this error: "THREE.TSL: NodeError: THREE.TSL: `texture( value )` function expects a valid instance of THREE.Texture()."
   - **In this project, `texture(...)` expects a real `THREE.Texture` as its first argument** (see `Lightnings`, `Stars`, etc). Do **not** do `texture( uniform(tex), uv )`.
-  - Use `LoaderManager.getTexture('name')` to guarantee a valid texture (falls back to a 1×1 `DataTexture` until loaded), then sample with `texture(mapTexture, uv())`.
+  - Use `LoaderManager.getTexture('name')` or `LoaderManager.get('name').texture` to get a valid texture, then sample with `texture(mapTexture, uv())`. Do **not** expose the texture as a uniform and pass that uniform into `texture()`.
+  - **Runtime texture swapping:** If a material’s texture must change at runtime (e.g. mouth/eyes/pupils), **replace the material** with a new one created with the new texture (e.g. `mesh.material = createXxxMaterial(newTexture)`). Do **not** use `material.uMap.value = newTexture` or similar; TSL materials must receive the texture at creation time.
 
 ### Component + Material folder structure
 
@@ -70,6 +71,10 @@ When a component has its own TSL material in a separate file, use a dedicated fo
 - **Component file**: PascalCase (e.g. `Sail.js`, `Splashes.js`)
 - **Material file**: `*Materials.js` (e.g. `SailMaterials.js`, `SplashMaterials.js`)
 - Import from parent: `import Sail from './sail/Sail'`
+
+### Shared TSL / reused GLSL logic
+
+When multiple components use the same TSL (or former GLSL) logic, extract it to **`src/js/tsl-nodes/`** and import from there. Example: Boat and Link both use the same receive-shadow toon (former `receiveShadow.vert` + `receiveShadow.frag`) → `src/js/tsl-nodes/receiveShadowToon.js` exports `createReceiveShadowMaterial`, and both `BoatMaterials.js` and `LinkMaterials.js` use it.
 
 ## Imports
 

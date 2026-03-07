@@ -1,10 +1,6 @@
-import { AnimationMixer, Color, DoubleSide, Euler, LoopOnce, ShaderMaterial, Vector3 } from 'three'
-import EnvManager from '../../managers/EnvManager'
-
-// Toon
-import vertexToonShader from '@glsl/partials/toon.vert'
-import fragmentToonShader from '@glsl/partials/toon.frag'
+import { AnimationMixer, Euler, LoopOnce } from 'three'
 import gsap from 'gsap'
+import { createToonMaterial } from '../../tsl-nodes/toon'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import LoaderManager from '../../managers/LoaderManager'
@@ -31,23 +27,8 @@ export default class Seabox {
 
     this.#object.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
-        const textureOg = child.material.map
-        child.material = new ShaderMaterial({
-          vertexShader: vertexToonShader,
-          fragmentShader: fragmentToonShader,
-          uniforms: {
-            map: { value: textureOg },
-            sunDir: { value: EnvManager.sunDir.position },
-            ambientColor: { value: EnvManager.ambientLight.color },
-            coefShadow: { value: EnvManager.settings.coefShadow },
-            sRGBSpace: { value: 0 },
-            scaleY: { value: 1 },
-          },
-          defines: {
-            USE_BONES: child.type === 'SkinnedMesh',
-          },
-          name: 'toon',
-        })
+        const mapTexture = child.material?.map ?? null
+        child.material = createToonMaterial(mapTexture)
       }
     })
 

@@ -221,7 +221,7 @@ class EnvManager {
   }
 
   updateEnv(index, nextIndex, mode) {
-    // return
+    return
     // return
     let current = DATA_ENV.explore[index]
     let next = DATA_ENV.explore[nextIndex]
