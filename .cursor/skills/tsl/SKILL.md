@@ -76,6 +76,8 @@ When a component has its own TSL material in a separate file, use a dedicated fo
 
 When multiple components use the same TSL (or former GLSL) logic, extract it to **`src/js/tsl-nodes/`** and import from there. Example: Boat and Link both use the same receive-shadow toon (former `receiveShadow.vert` + `receiveShadow.frag`) → `src/js/tsl-nodes/receiveShadowToon.js` exports `createReceiveShadowMaterial`, and both `BoatMaterials.js` and `LinkMaterials.js` use it.
 
+**Convention:** From now on, add **all TSL nodes** in the **`src/js/tsl-nodes/`** folder, one file per node type (e.g. `toon.js`, `barrel.js`, `receiveShadowToon.js`). Do not add new TSL node logic only inside component folders; centralize reusable materials and node builders in `tsl-nodes`.
+
 ## Imports
 
 ### NPM (Preferred)
@@ -955,6 +957,25 @@ The heightmap covers `[-SCALE_OCEAN/2, SCALE_OCEAN/2]` in world X and Z.
 Required imports for this pattern:
 
     import { positionLocal, modelWorldMatrix, modelWorldMatrixInverse } from 'three/tsl'
+
+### Toon lighting when positionNode is overridden (Barrel-style)
+
+When a material overrides `positionNode` (e.g. barrel with ocean heightmap), the pipeline’s `positionWorld` and `normalLocal` are wrong for lighting, so shading can move with the camera or be wrong at distance.
+
+**Approach:**
+
+1. **World-space lighting** — In the vertex, assign a world normal varying: `vNormalWorld.assign(normalize(transformDirection(normalLocal, transpose(modelWorldMatrixInverse))))`. Pass `normalWorldNode: vNormalWorld` into `buildToonShadingNode` (from `tsl-nodes/toon.js`).
+
+2. **Directional sun (no position)** — Do not use position for the sun direction. Use a constant direction so lighting is camera- and distance-independent: when `normalWorldNode` is set, `buildToonShadingNode` uses `normalize(uSunDir)` (sun at `uSunDir`, same direction everywhere).
+
+3. **Sun direction Y/Z sign fix** — In this project the directional sun direction must flip Y and Z so that “sun at top” (zenith) lights surfaces from above. In `buildToonShadingNode`, for the directional path use:
+
+       const rawDir = normalize(uSunDir)
+       const sunDirDirectional = vec3(rawDir.x, rawDir.y.negate(), rawDir.z.negate())
+
+   Without this, barrels (and any material using `normalWorldNode` + directional sun) are lit as if the sun were below when it is above, and vice versa.
+
+**Summary:** For materials with custom `positionNode`, use `buildToonShadingNode` with `normalWorldNode` (world normal varying). The toon module then uses directional sun (`normalize(uSunDir)` with Y/Z negated) and no position, so lighting is stable at any camera distance and orientation.
 
 ### Complete positionNode Example (InstancedMesh with Billboard)
 

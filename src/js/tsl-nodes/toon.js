@@ -34,20 +34,40 @@ function fromLinear(linearRGB) {
 
 /**
  * Build toon shading: smoothstep shadow * coefShadow * 0.9 + ambient, optional sRGB.
- * Same formula as toon.frag.
+ * Same formula as toon.frag. Exported for reuse (e.g. barrel, receiveShadowToon).
+ *
+ * - Default (Boat, etc.): local-space lighting — sunDirLocal from modelWorldMatrixInverse, dot(normalLocal, sunDirLocal).
+ * - When positionNode is overridden or SkinnedMesh (Barrel, Link): pass positionWorldNode + normalWorldNode and we do
+ *   world-space lighting so it stays camera-independent: dot(normalWorldNode, sunDirWorld).
+ *
+ * @param {object} [options.positionWorldNode] - Vertex-varying world position (required if normalWorldNode is set).
+ * @param {object} [options.normalWorldNode] - Vertex-varying world normal. If set, use world-space lighting (like Link in receiveShadowToon).
+ * @param {object} [options.sunDirWorldNode] - Vertex-varying sun direction (world space). If unset and normalWorldNode is set, sun is treated as directional: normalize(uSunDir), no position — camera-independent.
  */
-function buildToonShadingNode({
+export function buildToonShadingNode({
   uSunDir,
   uAmbientColor,
   uCoefShadow,
   uSRGBSpace,
   smoothstepMax = 0.1,
   ambientMul = 1,
+  positionWorldNode = null,
+  normalLocalNode = null,
+  normalWorldNode = null,
+  sunDirWorldNode = null,
 }) {
   return Fn(() => {
-    const sunDirWorld = normalize(uSunDir.sub(positionWorld))
-    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz)
-    const shadow = dot(normalLocal, sunDirLocal)
+    const worldPos = positionWorldNode != null ? positionWorldNode : positionWorld
+    const sunDirFromPosition = normalize(uSunDir.sub(worldPos))
+    const rawDir = normalize(uSunDir)
+    const sunDirDirectional = vec3(rawDir.x, rawDir.y.negate(), rawDir.z.negate())
+    const baseSunDir = normalWorldNode != null ? sunDirDirectional : sunDirFromPosition
+    const sunDirWorld = sunDirWorldNode != null ? normalize(sunDirWorldNode) : baseSunDir
+
+    const shadow =
+      normalWorldNode != null
+        ? dot(normalize(normalWorldNode), sunDirWorld)
+        : dot(normalLocalNode != null ? normalLocalNode : normalLocal, normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz))
     const toonShading = float(1)
       .mul(smoothstep(float(0.0), float(smoothstepMax), shadow))
       .mul(0.9)

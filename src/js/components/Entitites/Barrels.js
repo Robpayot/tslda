@@ -1,13 +1,8 @@
-import { Color, ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
+import { MathUtils } from 'three'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
-import fragmentBarrelShader from '@glsl/game/barrel.frag'
-import { MathUtils } from 'three'
+import { createBarrelMaterial } from '../../tsl-nodes/barrel'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
@@ -47,47 +42,23 @@ export default class Barrels {
     barrelGroup.name = 'barrel'
 
     const mesh1 = barrelGroup.children[0]
-    const material1 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentBarrelShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh1.material.map },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-        fogColor: { value: new Color(EnvManager.settingsOcean.fogColor) },
-        fogDensity: { value: EnvManager.settingsOcean.fogDensity },
-      },
-      defines: {
-        USE_BONES: mesh1.type === 'SkinnedMesh',
-      },
-    })
+    const material1 = createBarrelMaterial(
+      mesh1.material.map,
+      OceanHeightMap.heightMap.texture,
+      { scaleOcean: SCALE_OCEAN }
+    )
 
     mesh1.geometry.computeVertexNormals()
-
     mesh1.material = material1
 
     const mesh2 = barrelGroup.children[1]
-    const material2 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentBarrelShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh2.material.map },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-        fogColor: { value: new Color(EnvManager.settingsOcean.fogColor) },
-        fogDensity: { value: EnvManager.settingsOcean.fogDensity },
-      },
-      defines: {
-        USE_BONES: mesh2.type === 'SkinnedMesh',
-      },
-    })
+    const material2 = createBarrelMaterial(
+      mesh2.material.map,
+      OceanHeightMap.heightMap.texture,
+      { scaleOcean: SCALE_OCEAN }
+    )
 
     mesh2.geometry.computeVertexNormals()
-
     mesh2.material = material2
 
     barrelGroup.visible = false

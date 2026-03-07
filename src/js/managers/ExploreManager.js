@@ -1,4 +1,4 @@
-import { Color, Object3D, Vector2 } from 'three'
+import { Color, Object3D, Vector2, MathUtils } from 'three'
 import Winds from '../components/Entitites/Winds'
 import { EventBusSingleton } from 'light-event-bus'
 import { CLOSE_TREASURE, EVENT_HIT, EVENT_SCORE, EXPLORE_MESSAGE, MODE, START_EXPLORE } from '../utils/constants'
@@ -11,8 +11,6 @@ import Stars from '../components/Entitites/Stars'
 import Rupees from '../components/Entitites/Rupees'
 import { getDistance } from '../utils/math'
 import Barrels from '../components/Entitites/Barrels'
-import { MathUtils } from 'three'
-const { clamp, degToRad, randFloat, randInt } = MathUtils
 import ControllerManager from './ControllerManager'
 import UIManager from './UIManager'
 import BarrelRupees from '../components/Entitites/BarrelRupees'
@@ -28,6 +26,8 @@ import { BOAT_MODE } from '../components/Boat'
 import { GLOBALS } from '../utils/globals'
 import Lightnings from '../components/Entitites/Lightnings'
 import CinematicManager from './CinematicManager'
+
+const { clamp, degToRad, randFloat, randInt } = MathUtils
 
 const pointInPolygon = function (polygon, point) {
   //A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
@@ -150,7 +150,6 @@ class ExploreManager {
     this.#waves = new Waves()
     this.#parent.add(this.#waves.mesh)
 
-
     this.#lightnings = new Lightnings()
     this.#parent.add(this.#lightnings.mesh)
 
@@ -158,8 +157,6 @@ class ExploreManager {
 
     this.#stars = new Stars()
     this.#parent.add(this.#stars.mesh)
-
-
 
     // entities
     this.#rupees = this._createRupees()
@@ -567,7 +564,6 @@ class ExploreManager {
       }
     }
 
-
     if (EnvManager.settingsOcean.alphaLightnings > 0) {
       this.#lightnings.material.uTime.value += (delta / 16) * 0.1
       this.#lightnings.material.uGlobalOpacity.value = EnvManager.settingsOcean.alphaLightnings
@@ -576,15 +572,11 @@ class ExploreManager {
       this.#lightnings.mesh.position.z = this.#lightnings.mesh.initPos.z + playerZ
     }
 
-
-
     // stars
     if (EnvManager.settings.alphaStars > 0) {
       this.#stars.material.uTime.value += (delta / 16) * 0.1
       this.#stars.material.uGlobalOpacity.value = EnvManager.settings.alphaStars
     }
-
-
 
     // Entities
     for (let i = 0; i < this.#entities.length; i++) {
