@@ -23,7 +23,7 @@ import {
   TRIFORCE_FOUND,
 } from '../../utils/constants'
 import { EventBusSingleton } from 'light-event-bus'
-import Crane from './Crane'
+import Crane from './crane/Crane'
 import ExploreManager from '../../managers/ExploreManager'
 import Rupees from '../Entitites/Rupees'
 import { LIGHT_RING_TYPE } from '../Entitites/LightRing'
@@ -103,17 +103,17 @@ export default class Boat {
     this.#particleSideMesh = this._createParticlesSideMesh()
     this.#particlesFrontMesh = this._createParticlesFrontMesh()
     this.#particlesJumpMesh = this._createParticlesJumpMesh()
-    // this.#craneMesh = this._createCraneMesh()
+    this.#craneMesh = this._createCraneMesh()
 
-    // this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
+    this.#mastBaseBone = this.#mesh.getObjectByName('j_fn_mast')
 
-    // // events
-    // EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
-    // EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
-    // EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
-    // EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
-    // EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
-    // EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
+    // events
+    EventBusSingleton.subscribe(EVENT_HIT, this._eventHit)
+    EventBusSingleton.subscribe(TOOGLE_HOOK, this._toogleHook)
+    EventBusSingleton.subscribe(HOOK_PUT_AWAY, this._toogleHookPutAway)
+    EventBusSingleton.subscribe(START_CAMERA_TREASURE_FOUND, this._playTreasureAnimation)
+    EventBusSingleton.subscribe(SHOW_TREASURE, this._showTreasure)
+    EventBusSingleton.subscribe(CLOSE_TREASURE, this._resetTreasureAnimation)
 
     const s = 0.25
     this.sailMesh.mesh.scale.set(s, this.sailMesh.mesh.scale.y, this.sailMesh.mesh.scale.z)

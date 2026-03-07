@@ -1,18 +1,14 @@
-import { AnimationMixer, Color, DoubleSide, Euler, LoopOnce, ShaderMaterial, Vector3 } from 'three'
-import EnvManager from '../../managers/EnvManager'
-
-// Toon
-import vertexToonShader from '@glsl/partials/toon.vert'
-import vertexToonScaleShader from '@glsl/partials/toonScaleY.vert'
-import fragmentToonShader from '@glsl/partials/toon.frag'
-import fragmentRopeShader from '@glsl/boat/rope.frag'
+import { AnimationMixer, Euler, LoopOnce } from 'three'
 import gsap from 'gsap'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
-import Seabox from './Seabox'
-import CinematicManager from '../../managers/CinematicManager'
-import ControllerManager from '../../managers/ControllerManager'
-import ExploreManager from '../../managers/ExploreManager'
+import { createToonMaterial } from '../BoatMaterials'
+import { createRopeMaterial } from './CraneMaterials'
+import LoaderManager from '../../../managers/LoaderManager'
+import Seabox from '../Seabox'
+import CinematicManager from '../../../managers/CinematicManager'
+import ControllerManager from '../../../managers/ControllerManager'
+import ExploreManager from '../../../managers/ExploreManager'
 
 export default class Crane {
   #mesh
@@ -97,40 +93,10 @@ export default class Crane {
 
     this.#crane.children.forEach((child) => {
       if (child.name === 'crane-rope') {
-        child.material = new ShaderMaterial({
-          vertexShader: vertexToonShader,
-          fragmentShader: fragmentRopeShader,
-          uniforms: {
-            sunDir: { value: EnvManager.sunDir.position },
-            ambientColor: { value: EnvManager.ambientLight.color },
-            coefShadow: { value: EnvManager.settings.coefShadow },
-            sRGBSpace: { value: 0 },
-            color1: { value: new Color('#eabf5f') },
-            color2: { value: new Color('#c68221') },
-          },
-          defines: {
-            USE_BONES: child.type === 'SkinnedMesh',
-          },
-          name: 'toon',
-        })
+        child.material = createRopeMaterial()
       } else if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
-        const textureOg = child.material.map
-        child.material = new ShaderMaterial({
-          vertexShader: child.name === 'crane-hook' ? vertexToonScaleShader : vertexToonShader,
-          fragmentShader: fragmentToonShader,
-          uniforms: {
-            map: { value: textureOg },
-            sunDir: { value: EnvManager.sunDir.position },
-            ambientColor: { value: EnvManager.ambientLight.color },
-            coefShadow: { value: EnvManager.settings.coefShadow },
-            sRGBSpace: { value: 0 },
-            scaleY: { value: 1 },
-          },
-          defines: {
-            USE_BONES: child.type === 'SkinnedMesh',
-          },
-          name: 'toon',
-        })
+        const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
+        child.material = createToonMaterial(mapTexture)
       }
     })
 
@@ -243,7 +209,6 @@ export default class Crane {
   }
 
   update({ time, delta }) {
-    return // TSL migration: scene cleared
     if (!this.stopAction) {
       this.#mixer?.update(0.055)
       this.#mixerRotate?.update(0.055)
