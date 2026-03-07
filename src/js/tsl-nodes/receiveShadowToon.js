@@ -120,8 +120,8 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
     }
 
     const rawDir = normalize(uSunDir)
-    const sunDirDirectional = vec4(rawDir.x, rawDir.y.negate(), rawDir.z.negate(), 0.0)
-    const sunDirWorld = useWorldSpaceLighting ? sunDirDirectional.xyz : normalize(uSunDir.sub(positionWorld))
+    // Same raw direction for both Link and Boat (no Y/Z flip).
+    const sunDirWorld = rawDir
     const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0.0)).xyz)
     const shadow = dot(normalForLight, sunDirLocal)
 
