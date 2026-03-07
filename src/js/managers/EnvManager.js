@@ -174,7 +174,7 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 3  // update to debug
+      this.#index = 1  // update to debug
     }
     this.tl?.kill()
     this.tl = new gsap.timeline()
@@ -221,7 +221,6 @@ class EnvManager {
   }
 
   updateEnv(index, nextIndex, mode) {
-    return
     // return
     let current = DATA_ENV.explore[index]
     let next = DATA_ENV.explore[nextIndex]

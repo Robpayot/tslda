@@ -58,11 +58,12 @@ export function createBarrelMaterial(mapTexture, heightMapTexture, options = {})
     normalWorldNode: vNormalWorld,
   })
 
+  // World → heightmap UV. WebGPU render target has top-left origin (WebGL has bottom-left), so flip V when sampling.
   const positionNodeFn = Fn(() => {
     const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
     const uvGrid = vec2(
       float(0.5).add(wCenter.x.div(uScaleOcean)),
-      float(0.5).sub(wCenter.z.div(uScaleOcean))
+      float(0.5).add(wCenter.z.div(uScaleOcean))
     )
 
     const off = float(0.01)
@@ -73,6 +74,7 @@ export function createBarrelMaterial(mapTexture, heightMapTexture, options = {})
     const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
 
     const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+    // vDepth = (depth + yStrength)/(2*yStrength) => depth = (avgH - 0.5) * 2 * yStrength; hmC.b = yStrength/100
     const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
 
     const worldDispVec = vec4(0.0, disp, 0.0, 0.0)

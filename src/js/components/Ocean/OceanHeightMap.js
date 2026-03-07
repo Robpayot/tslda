@@ -9,7 +9,6 @@ import {
   RGBAFormat,
   Scene,
   Vector2,
-  Vector3,
   WebGLRenderTarget,
 } from 'three'
 import {
@@ -18,9 +17,12 @@ import {
   positionLocal,
   distance, sin,
 } from 'three/tsl'
+import { MathUtils } from 'three'
 import Debugger from '@/js/managers/Debugger'
 import { SCALE_OCEAN } from '.'
 import Settings from '../../utils/Settings'
+
+const { degToRad } = MathUtils
 
 class OceanHeightmap {
   #camera
@@ -63,8 +65,9 @@ class OceanHeightmap {
       frustumSize
     )
 
-    this.#camera.position.z = 1
-    this.#camera.lookAt(new Vector3(0, 0, 0))
+    this.#camera.position.set(0, 1, 0)
+    this.#camera.lookAt(0, 0, 0)
+    this.#camera.up.set(0, 0, -1)
 
     const mapSize = Settings.textureSize
 
@@ -140,6 +143,7 @@ class OceanHeightmap {
 
     const mesh = new Mesh(new PlaneGeometry(1, 1, 200, 200), this.#material)
     mesh.position.y = 0
+    mesh.rotateX(degToRad(-90))
     mesh.scale.set(SCALE_OCEAN, SCALE_OCEAN, 1)
     this.#scene.add(mesh)
   }

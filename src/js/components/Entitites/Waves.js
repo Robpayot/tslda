@@ -31,7 +31,7 @@ import OceanHeightMap from '../Ocean/OceanHeightMap'
 
 const NB_POINTS = 300
 const RANGE = 1200
-const SPRITE_SCALE = 15
+const SPRITE_SCALE = 25
 
 export default class Waves {
   #mesh
@@ -124,7 +124,7 @@ export default class Waves {
       const worldZ = uMeshPosition.z.add(aPosition.z)
       const uvGrid = vec2(
         float(0.5).add(worldX.div(uScaleOcean)),
-        float(0.5).sub(worldZ.div(uScaleOcean))
+        float(0.5).add(worldZ.div(uScaleOcean))
       )
       const off = float(0.01)
       const hmC = texture(heightMapTex, uvGrid)

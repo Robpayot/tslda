@@ -2,11 +2,28 @@ import { Color, Mesh, NodeMaterial, Object3D, PlaneGeometry, RepeatWrapping } fr
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import {
-  Fn, uniform, varying,
-  float, vec2, vec3, vec4,
-  uv, positionLocal, modelViewMatrix,
-  distance, step, exp, mix, sin, cos, smoothstep, min, abs, pow,
-  texture, select,
+  Fn,
+  uniform,
+  varying,
+  float,
+  vec2,
+  vec3,
+  vec4,
+  uv,
+  positionLocal,
+  modelViewMatrix,
+  distance,
+  step,
+  exp,
+  mix,
+  sin,
+  cos,
+  smoothstep,
+  min,
+  abs,
+  pow,
+  texture,
+  select,
 } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -28,13 +45,14 @@ const GEOMETRY = new PlaneGeometry(1, 1, SEGMENTS_OCEAN, SEGMENTS_OCEAN) // 200,
 export default class Ocean extends Object3D {
   #material
   #debug
+  #debugHeightMapPlane
   #settings = {
     color: EnvManager.settingsOcean.color,
     trailRotation: 1,
     trailProgress: 0,
     trailTurn: 0,
     fogColor: '#6abbe9',
-    fogDensity: 0.00090,
+    fogDensity: 0.0009,
   }
   #scale = SCALE_OCEAN
   #mesh
@@ -66,6 +84,27 @@ export default class Ocean extends Object3D {
     scene.add(meshT)
 
     this.meshExtend = meshT
+
+    // // Debug plane to visualize OceanHeightMap live (centered in scene, above water) — TSL
+    // const debugHeightMapMat = this._createDebugHeightMapMaterial()
+    // this.#debugHeightMapPlane = new Mesh(new PlaneGeometry(1, 1), debugHeightMapMat)
+    // this.#debugHeightMapPlane.scale.set(50, 50, 1)
+    // this.#debugHeightMapPlane.position.set(0, 30, 0)
+    // this.#debugHeightMapPlane.visible = !!this.#debug
+    // this._debugHeightMapVisible = { showHeightMap: !!this.#debug }
+    // this.add(this.#debugHeightMapPlane)
+  }
+
+  _createDebugHeightMapMaterial() {
+    const heightMapTex = OceanHeightMap.heightMap?.texture
+    if (!heightMapTex) {
+      const fallback = new NodeMaterial()
+      fallback.colorNode = vec4(0.2, 0.2, 0.2, 1)
+      return fallback
+    }
+    const mat = new NodeMaterial()
+    mat.colorNode = Fn(() => vec4(texture(heightMapTex, uv()).rgb, 1))()
+    return mat
   }
 
   get mesh() {
@@ -225,17 +264,23 @@ export default class Ocean extends Object3D {
 
       const rotateUV = (uvVec, rotation, mid) =>
         vec2(
-          cos(rotation).mul(uvVec.x.sub(mid)).add(sin(rotation).mul(uvVec.y.sub(mid))).add(mid),
-          cos(rotation).mul(uvVec.y.sub(mid)).sub(sin(rotation).mul(uvVec.x.sub(mid))).add(mid)
+          cos(rotation)
+            .mul(uvVec.x.sub(mid))
+            .add(sin(rotation).mul(uvVec.y.sub(mid)))
+            .add(mid),
+          cos(rotation)
+            .mul(uvVec.y.sub(mid))
+            .sub(sin(rotation).mul(uvVec.x.sub(mid)))
+            .add(mid)
         )
 
       const distortUVTrail = rotateUV(vec2(vUvTrail.x, vUvTrail.y), this.uTrailRotation, float(0.5))
       const trailTexOffset = this.uTrailProgress.mul(vRepeatTrail)
       const distortionView = distance(vec2(0.5, 0.5), vUvTrail)
 
-      const trailOff = distortUVTrail.sub(vec2(0.5, 0.5)).sub(
-        vec2(0, 0.5).sub(trailTexOffset).add(this.uTrailJumpOffset)
-      )
+      const trailOff = distortUVTrail
+        .sub(vec2(0.5, 0.5))
+        .sub(vec2(0, 0.5).sub(trailTexOffset).add(this.uTrailJumpOffset))
       const trailPosYOffset = 0.5
       const yCoef = trailOff.y.sub(trailTexOffset).div(nbTrailVisible).sub(float(trailPosYOffset))
       const trailX = trailOff.x
@@ -248,17 +293,10 @@ export default class Ocean extends Object3D {
             .mul(3.0)
         )
       const transformedTrailUV = vec2(trailX, trailOff.y)
-      const distortUVTrailFinal = select(
-        distortionView.greaterThan(float(0.05)),
-        transformedTrailUV,
-        distortUVTrail
-      )
+      const distortUVTrailFinal = select(distortionView.greaterThan(float(0.05)), transformedTrailUV, distortUVTrail)
 
       let trailTex = texture(trailMapTexture, distortUVTrailFinal).mul(min(alphaTex.mul(20), float(1)))
-      trailTex = vec4(
-        trailTex.xyz.mul(smoothstep(float(0.1), float(0.3), trailTex.r)),
-        trailTex.a
-      )
+      trailTex = vec4(trailTex.xyz.mul(smoothstep(float(0.1), float(0.3), trailTex.r)), trailTex.a)
       const hiddenTrailPart = step(float(0), distortUVTrailFinal.y.negate().add(trailTexOffset))
         .mul(
           smoothstep(
@@ -269,10 +307,7 @@ export default class Ocean extends Object3D {
         )
         .mul(step(float(0), float(1).sub(distortUVTrailFinal.x)))
         .mul(step(float(0), distortUVTrailFinal.x))
-      trailTex = vec4(
-        trailTex.xyz,
-        trailTex.a.mul(hiddenTrailPart).mul(this.uTrailOpacity).mul(this.uTrailJumpOpacity)
-      )
+      trailTex = vec4(trailTex.xyz, trailTex.a.mul(hiddenTrailPart).mul(this.uTrailOpacity).mul(this.uTrailJumpOpacity))
 
       const finalColor = oceanTex.xyz
         .mul(float(1).sub(trailTex.a))
@@ -306,9 +341,7 @@ export default class Ocean extends Object3D {
       //   finalColor.assign(finalColor.mul(shadow))
       // }
 
-      const fogFactor = float(1).sub(
-        exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate())
-      )
+      const fogFactor = float(1).sub(exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate()))
       finalColor.assign(mix(finalColor, vec3(this.uFogColor), fogFactor))
 
       return vec4(finalColor, 1.0)
@@ -355,7 +388,9 @@ export default class Ocean extends Object3D {
       const alpha = step(0.12, circle)
 
       const col = vec3(uExtColor).toVar()
-      const fogFactor = float(1).sub(exp(uExtFogDensity.negate().mul(uExtFogDensity).mul(vExtFogDepth).mul(vExtFogDepth)))
+      const fogFactor = float(1).sub(
+        exp(uExtFogDensity.negate().mul(uExtFogDensity).mul(vExtFogDepth).mul(vExtFogDepth))
+      )
       col.assign(mix(col, vec3(uExtFogColor), fogFactor))
 
       return vec4(col, alpha)
@@ -372,10 +407,12 @@ export default class Ocean extends Object3D {
    * Update
    */
   update({ time, delta }) {
-    const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } = EnvManager.settingsOcean
+    const { yScale, yStrength, color, speedWave, speedTex, alphaTex, alphaTex2, fogColor, fogDensity } =
+      EnvManager.settingsOcean
 
     OceanHeightMap.uTimeWave.value = this.uTimeWave.value
-    OceanHeightMap.uDirTex.value = GridManager.offsetUV
+    // Same dirTex as ocean so heightmap wave phase matches → barrels stay in sync (WebGL did this too)
+    OceanHeightMap.uDirTex.value.copy(GridManager.offsetUV)
     this.uDirTex.value = GridManager.offsetUV
     OceanHeightMap.uYScale.value = yScale
     OceanHeightMap.uYStrength.value = yStrength
