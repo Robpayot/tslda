@@ -174,7 +174,10 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 1  // update to debug
+      this.#index = 3  // update to debug
+      // Sync full env (ocean, sky, lights) to current index so heightmap, barrels and waves match from frame one
+      this.progress = 0
+      this.updateEnv(this.#index, this.#index)
     }
     this.tl?.kill()
     this.tl = new gsap.timeline()
