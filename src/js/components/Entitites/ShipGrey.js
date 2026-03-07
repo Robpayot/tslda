@@ -1,12 +1,7 @@
-import { ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
-import fragmentShader from '@glsl/game/barrel.frag'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 import { MathUtils } from 'three'
 const { degToRad, randInt } = MathUtils
 import { MODE } from '../../utils/constants'
@@ -50,21 +45,14 @@ export default class ShipGrey {
     // shipGroup.position.y = -11
     shipGroup.name = 'ship_grey'
 
-    const material = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: shipGroup.material.map },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-      },
+    shipGroup.material = createEntityToonMaterial({
+      mapTexture: shipGroup.material.map,
+      heightMapTexture: OceanHeightMap.heightMap.texture,
+      scaleOcean: SCALE_OCEAN,
+      name: 'ship_grey',
     })
 
     shipGroup.geometry.computeVertexNormals()
-
-    shipGroup.material = material
 
     shipGroup.visible = false
     shipGroup.canVisible = false

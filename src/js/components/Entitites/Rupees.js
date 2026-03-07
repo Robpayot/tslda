@@ -1,12 +1,8 @@
-import { Color, ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
+import { Color } from 'three'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
-import fragmentRupeeShader from '@glsl/game/rupee.frag'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 import { MathUtils } from 'three'
 const { randInt } = MathUtils
 
@@ -51,83 +47,28 @@ export default class Rupees {
   }
 
   _createMaterials() {
-    const uniforms = {
-      ambientColor: { value: EnvManager.ambientLight.color },
-      coefShadow: { value: EnvManager.settings.coefShadow },
-      color: { value: new Color(0, 0.314, 0) },
-      heightMap: { value: OceanHeightMap.heightMap.texture },
-      scaleOcean: { value: SCALE_OCEAN },
+    const heightMapTexture = OceanHeightMap.heightMap?.texture
+    const opts = {
+      heightMapTexture,
+      scaleOcean: SCALE_OCEAN,
+      smoothstepMax: 0.8,
+      ambientMul: 0.5,
+      name: 'rupee',
     }
 
+    const colors = [
+      new Color(0, 0.314, 0),
+      new Color('#365ad3'),
+      new Color('#bfc84e'),
+      new Color('#f54c4b'),
+      new Color('#8561ab'),
+      new Color('#ed7f21'),
+      new Color('#f0f0f0'),
+    ]
 
-    const mat1 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms,
-    })
-
-    this.#materials.push(mat1)
-
-    const mat2 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#365ad3') },
-      },
-    })
-    mat2.uniforms.color.value = new Color('#365ad3')
-    this.#materials.push(mat2)
-
-    const mat3 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#bfc84e') },
-      },
-    })
-    this.#materials.push(mat3)
-
-    const mat4 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#f54c4b') },
-      },
-    })
-    this.#materials.push(mat4)
-
-    const mat5 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#8561ab') },
-      },
-    })
-    this.#materials.push(mat5)
-
-    const mat6 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#ed7f21') },
-      },
-    })
-    this.#materials.push(mat6)
-
-    const mat7 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentRupeeShader,
-      uniforms: {
-        ...uniforms,
-        color: { value: new Color('#f0f0f0') },
-      },
-    })
-    this.#materials.push(mat7)
+    for (const color of colors) {
+      this.#materials.push(createEntityToonMaterial({ ...opts, tintColor: color }))
+    }
   }
 
   _createMesh() {

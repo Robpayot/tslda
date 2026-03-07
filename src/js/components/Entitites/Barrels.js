@@ -2,7 +2,7 @@ import { MathUtils } from 'three'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-import { createBarrelMaterial } from '../../tsl-nodes/barrel'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
@@ -42,21 +42,23 @@ export default class Barrels {
     barrelGroup.name = 'barrel'
 
     const mesh1 = barrelGroup.children[0]
-    const material1 = createBarrelMaterial(
-      mesh1.material.map,
-      OceanHeightMap.heightMap.texture,
-      { scaleOcean: SCALE_OCEAN }
-    )
+    const material1 = createEntityToonMaterial({
+      mapTexture: mesh1.material.map,
+      heightMapTexture: OceanHeightMap.heightMap.texture,
+      scaleOcean: SCALE_OCEAN,
+      name: 'barrel',
+    })
 
     mesh1.geometry.computeVertexNormals()
     mesh1.material = material1
 
     const mesh2 = barrelGroup.children[1]
-    const material2 = createBarrelMaterial(
-      mesh2.material.map,
-      OceanHeightMap.heightMap.texture,
-      { scaleOcean: SCALE_OCEAN }
-    )
+    const material2 = createEntityToonMaterial({
+      mapTexture: mesh2.material.map,
+      heightMapTexture: OceanHeightMap.heightMap.texture,
+      scaleOcean: SCALE_OCEAN,
+      name: 'barrel',
+    })
 
     mesh2.geometry.computeVertexNormals()
     mesh2.material = material2

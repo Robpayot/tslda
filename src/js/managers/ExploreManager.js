@@ -686,7 +686,11 @@ class ExploreManager {
 
     for (let i = 0; i < this.#rupees.materials.length; i++) {
       const mat = this.#rupees.materials[i]
-      mat.uniforms.ambientColor.value = new Color(EnvManager.settings.ambientLight)
+      if (mat.uniforms) {
+        mat.uniforms.ambientColor.value = new Color(EnvManager.settings.ambientLight)
+      } else if (mat.uAmbientColor) {
+        mat.uAmbientColor.value.setStyle(EnvManager.settings.ambientLight)
+      }
     }
 
     // update light ring pos
@@ -724,8 +728,8 @@ class ExploreManager {
 
     this.#treasureZone = treasureReached
 
-    this.#lightRings.materialRing.uniforms.uTime.value += (delta / 16) * 0.1
-    this.#lightRings.materialColumn.uniforms.uTime.value += (delta / 16) * 0.1
+    this.#lightRings.materialRing.uTime.value += (delta / 16) * 0.1
+    this.#lightRings.materialColumn.uTime.value += (delta / 16) * 0.1
 
     // check if close to treasure zone
   }
@@ -778,7 +782,7 @@ class ExploreManager {
     }
     const debug = Debugger.addFolder({ title: 'Explore', index: 1 })
     debug.addInput(obj, 'color', { label: 'Color' }).on('change', () => {
-      this.#lightRings.materialColumn.uniforms.color.value = new Color(obj.color)
+      this.#lightRings.materialColumn.uColor.value.copy(new Color(obj.color))
     })
     debug.addInput(this.#lightRings.avail[1], 'position', { label: 'Position' })
 

@@ -1,11 +1,6 @@
-import { ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
 import { REPEAT_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexShader from '@glsl/game/wall.vert'
-import fragmentShader from '@glsl/game/barrel.frag'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 import { MathUtils } from 'three'
 const { degToRad } = MathUtils
 import gsap from 'gsap'
@@ -45,46 +40,22 @@ export default class Walls {
     wallGroup.name = 'wall'
 
     const mesh1 = wallGroup.children[0]
-    const material1 = new ShaderMaterial({
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh1.material.map },
-        sunDir: { value: EnvManager.sunDir.position },
-      },
+    mesh1.material = createEntityToonMaterial({
+      mapTexture: mesh1.material.map,
+      name: 'wall',
     })
-
-    mesh1.material = material1
 
     const mesh2 = wallGroup.children[1]
-    const material2 = new ShaderMaterial({
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh2.material.map },
-        sunDir: { value: EnvManager.sunDir.position },
-      },
+    mesh2.material = createEntityToonMaterial({
+      mapTexture: mesh2.material.map,
+      name: 'wall',
     })
-
-    mesh2.material = material2
 
     const mesh3 = wallGroup.children[2]
-    const material3 = new ShaderMaterial({
-      vertexShader: vertexShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh3.material.map },
-        sunDir: { value: EnvManager.sunDir.position },
-      },
+    mesh3.material = createEntityToonMaterial({
+      mapTexture: mesh3.material.map,
+      name: 'wall',
     })
-
-    mesh3.material = material3
 
     wallGroup.visible = false
 

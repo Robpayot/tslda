@@ -1,12 +1,7 @@
-import { ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonHeighmapShader from '@glsl/partials/toonHeightmap.vert'
-import fragmentShader from '@glsl/game/barrel.frag'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 import { MathUtils } from 'three'
 const { degToRad, randInt } = MathUtils
 
@@ -39,38 +34,22 @@ export default class Ship {
     shipGroup.name = 'ship'
 
     const mesh1 = shipGroup.children[0]
-    const material1 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh1.material.map },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-      },
+    mesh1.material = createEntityToonMaterial({
+      mapTexture: mesh1.material.map,
+      heightMapTexture: OceanHeightMap.heightMap.texture,
+      scaleOcean: SCALE_OCEAN,
+      name: 'ship',
     })
-
     mesh1.geometry.computeVertexNormals()
 
-    mesh1.material = material1
-
     const mesh2 = shipGroup.children[1]
-    const material2 = new ShaderMaterial({
-      vertexShader: vertexToonHeighmapShader,
-      fragmentShader: fragmentShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mesh2.material.map },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-      },
+    mesh2.material = createEntityToonMaterial({
+      mapTexture: mesh2.material.map,
+      heightMapTexture: OceanHeightMap.heightMap.texture,
+      scaleOcean: SCALE_OCEAN,
+      name: 'ship',
     })
-
     mesh2.geometry.computeVertexNormals()
-
-    mesh2.material = material2
 
     shipGroup.visible = false
     shipGroup.canVisible = false

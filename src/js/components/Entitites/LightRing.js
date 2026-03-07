@@ -1,19 +1,7 @@
-import {
-  AdditiveBlending,
-  Color,
-  CylinderGeometry,
-  DoubleSide,
-  Mesh,
-  Object3D,
-  ShaderMaterial,
-} from 'three'
-
-// Toon Shaders
-import vertexBasicHeighmapShader from '@glsl/partials/basicHeightmap.vert'
-import fragmentLightRing from '@glsl/game/lightRing.frag'
-import fragmentLightColumn from '@glsl/game/lightColumn.frag'
+import { Color, CylinderGeometry, Mesh, Object3D } from 'three'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { SCALE_OCEAN } from '../Ocean'
+import { createLightRingMaterial, createLightColumnMaterial } from '../../tsl-nodes/lightRing'
 
 export const LIGHT_RING_TYPE = {
   RUPEE_0: 'RUPEE_0',
@@ -64,41 +52,19 @@ export default class LightRing {
   }
 
   _createMaterialRing() {
-    const material = new ShaderMaterial({
-      vertexShader: vertexBasicHeighmapShader,
-      fragmentShader: fragmentLightRing,
-      uniforms: {
-        color: { value: new Color('#b9deeb') },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-        uTime: { value: 0 },
-      },
-      side: DoubleSide,
-      blending: AdditiveBlending,
-      transparent: true,
-      depthWrite: false,
-    })
-
-    return material
+    return createLightRingMaterial(
+      new Color('#b9deeb'),
+      OceanHeightMap.heightMap?.texture,
+      SCALE_OCEAN
+    )
   }
 
   _createMaterialColumn() {
-    const material = new ShaderMaterial({
-      vertexShader: vertexBasicHeighmapShader,
-      fragmentShader: fragmentLightColumn,
-      uniforms: {
-        color: { value: new Color('#b9deeb') },
-        heightMap: { value: OceanHeightMap.heightMap.texture },
-        scaleOcean: { value: SCALE_OCEAN },
-        uTime: { value: 0 },
-      },
-      side: DoubleSide,
-      blending: AdditiveBlending,
-      transparent: true,
-      depthWrite: false,
-    })
-
-    return material
+    return createLightColumnMaterial(
+      new Color('#b9deeb'),
+      OceanHeightMap.heightMap?.texture,
+      SCALE_OCEAN
+    )
   }
 
   _createMeshRing() {

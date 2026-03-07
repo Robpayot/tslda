@@ -1,11 +1,6 @@
-import { ShaderMaterial } from 'three'
-import EnvManager from '../../managers/EnvManager'
 import { REPEAT_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-
-// Toon Shaders
-import vertexToonShader from '@glsl/partials/toonWorld.vert'
-import fragmentBarrelShader from '@glsl/game/barrel.frag'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 import { MathUtils } from 'three'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
@@ -44,24 +39,10 @@ export default class Mirador {
     mirador.position.y = -30
     mirador.name = 'mirador'
 
-    const material = new ShaderMaterial({
-      vertexShader: vertexToonShader,
-      fragmentShader: fragmentBarrelShader,
-      uniforms: {
-        ambientColor: { value: EnvManager.ambientLight.color },
-        coefShadow: { value: EnvManager.settings.coefShadow },
-        map: { value: mirador.material.map },
-        // heightMap: { value: OceanHeightMap.heightMap.texture },
-        // scaleOcean: { value: SCALE_OCEAN },
-      },
-      defines: {
-        USE_BONES: mirador.type === 'SkinnedMesh',
-      },
+    mirador.material = createEntityToonMaterial({
+      mapTexture: mirador.material.map,
+      name: 'mirador',
     })
-
-    // mirador.geometry.computeVertexNormals()
-
-    mirador.material = material
 
     mirador.visible = false
 
