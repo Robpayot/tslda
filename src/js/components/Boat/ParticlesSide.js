@@ -28,7 +28,7 @@ import EnvManager from '../../managers/EnvManager'
 import LoaderManager from '../../managers/LoaderManager'
 
 const MAX_OPACITY = 0.4
-const SPRITE_SCALE = 0.4
+const SPRITE_SCALE = 0.1
 const PI = Math.PI
 
 export default class ParticlesSide {

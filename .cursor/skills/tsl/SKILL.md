@@ -471,6 +471,22 @@ When a component has its own TSL material in a separate file, use a dedicated fo
 
 Pass `uSunDir` as `uniform(light.position)` (reference, not clone) so updates are reflected.
 
+### Position and normal spaces — understand the logic
+
+**Be careful:** choose the right space for your calculation. See @.cursor/skills/tsl/references/TSL-DOC.md and @.cursor/skills/tsl/references/TSL-WIKI.md for full details.
+
+| Node | Space | When to use |
+|------|--------|-------------|
+| **positionLocal** | Object/model space (vertex position after skinning/morphing, before model matrix). | Vertex displacement, custom `.positionNode`, logic that should move with the object. |
+| **positionWorld** | World space (position after `modelWorldMatrix`). | Lighting (e.g. distance to light), world-space effects, sampling world-aligned textures. |
+| **positionGeometry** | Raw attribute (before any transform). | When you need the original mesh attribute. |
+| **normalLocal** | Object space normal (after skinning, before model matrix). | With SkinnedMesh (prefer over `normalWorld`), or when you transform light to model space. |
+| **normalWorld** | World space normal. | Standard lighting in fragment (e.g. `dot(normalWorld, lightDir)`), fresnel, world-aligned effects. |
+
+- **`.positionNode`** must return a **vec3 in local space**; the engine applies model/view/projection after. Use `positionLocal` (or a modification of it) there.
+- For **world-space** math (e.g. heightmap UV from world XZ), use `positionWorld` or `modelWorldMatrix.mul(vec4(positionLocal, 1)).xyz`.
+- **SkinnedMesh:** `normalWorld` / `normalView` can be wrong; use `normalLocal` and transform the light direction to model space (see SkinnedMesh note above).
+
 ### Camera
 
     cameraPosition  cameraNear  cameraFar
