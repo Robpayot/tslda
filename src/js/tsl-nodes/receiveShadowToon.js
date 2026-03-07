@@ -6,22 +6,24 @@ import { NodeMaterial } from 'three/webgpu'
 import {
   Fn,
   uniform,
+  varying,
   float,
+  vec3,
   vec4,
   uv,
   texture,
+  positionLocal,
   positionWorld,
   normalLocal,
+  normalGeometry,
   modelWorldMatrixInverse,
-  vertexStage,
-  transformDirection,
-  transpose,
   smoothstep,
   dot,
   normalize,
   mix,
   select,
   step,
+  skinning,
 } from 'three/tsl'
 import { Color, Vector3 } from 'three'
 import EnvManager from '../managers/EnvManager'
@@ -52,13 +54,13 @@ function fromLinear(linearRGB) {
  * Pass a real THREE.Texture; to swap at runtime, replace the material with a new one.
  *
  * @param {THREE.Texture} [mapTexture] - Diffuse map; falls back to LoaderManager.defaultTexture if null/undefined.
- * @param {{ useWorldSpaceLighting?: boolean }} [options] - If true (SkinnedMesh e.g. Link), compute view-space normal
- *   and surfaceToLight in vertex stage (matching receiveShadow.vert) and pass as varyings so lighting follows rotation.
- *   Default false: use normalLocal + sunDirLocal in fragment (works for Boat/Mesh).
+ * @param {{ useWorldSpaceLighting?: boolean, skinnedMesh?: THREE.SkinnedMesh }} [options]
+ *   - useWorldSpaceLighting: true for Link — directional sun in local space, camera-independent.
+ *   - skinnedMesh: when set (e.g. Link body part), we pass the skinned normal via varying (engine handles position; fragment normal from normalGeometry + bone skin matrix).
  * @returns {NodeMaterial}
  */
 export function createReceiveShadowMaterial(mapTexture, options = {}) {
-  const { useWorldSpaceLighting = false } = options
+  const { useWorldSpaceLighting = false, skinnedMesh = null } = options
   const mapTex = mapTexture ?? LoaderManager.defaultTexture
 
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
@@ -75,22 +77,23 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
   const uShadowCameraP = uniform(shadowCam?.projectionMatrix)
   const uShadowCameraV = uniform(shadowCam?.matrixWorldInverse)
 
-  // When useWorldSpaceLighting (Link/SkinnedMesh): normal in vertex with correct transform. Normals need (M^-1)^T
-  // so use transpose(modelWorldMatrixInverse); then world-space light in fragment = camera-independent.
-  const vNormalWorld = useWorldSpaceLighting
-    ? vertexStage(transformDirection(normalLocal, transpose(modelWorldMatrixInverse)))
-    : null
+  // For SkinnedMesh: engine skins position in setupPosition; we only feed a skinned normal to the fragment via a varying (normalGeometry + skin matrix).
+  const skinningNode = skinnedMesh ? skinning(skinnedMesh) : null
+  const vNormalSkinned = skinningNode ? varying(vec3(0, 1, 0), 'vNormalSkinned') : null
+  const positionNodeFn =
+    skinningNode
+      ? Fn(() => {
+          const boneMatrices = skinningNode.boneMatricesNode
+          const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
+          vNormalSkinned.assign(normalize(skinNormal))
+          return positionLocal
+        })
+      : null
+
+  const normalForLight = vNormalSkinned != null ? vNormalSkinned : normalLocal
 
   const colorFn = Fn(() => {
     const tex = texture(mapTex, uv())
-    const sunDirWorld = normalize(uSunDir.sub(positionWorld))
-    const shadow = useWorldSpaceLighting
-      ? dot(vNormalWorld, sunDirWorld)
-      : (() => {
-          const sunDirWorld = normalize(uSunDir.sub(positionWorld))
-          const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz)
-          return dot(normalLocal, sunDirLocal)
-        })()
 
     let receivedShadow = float(1.0)
     if (Settings.castShadows && shadowCam) {
@@ -116,6 +119,12 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
       receivedShadow = mix(float(1.0).sub(shadowDarkness), float(1.0), clampedFactor)
     }
 
+    const rawDir = normalize(uSunDir)
+    const sunDirDirectional = vec4(rawDir.x, rawDir.y.negate(), rawDir.z.negate(), 0.0)
+    const sunDirWorld = useWorldSpaceLighting ? sunDirDirectional.xyz : normalize(uSunDir.sub(positionWorld))
+    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0.0)).xyz)
+    const shadow = dot(normalForLight, sunDirLocal)
+
     const toonShading = float(1)
       .mul(smoothstep(float(0.0), float(0.1), shadow))
       .mul(0.9)
@@ -133,6 +142,7 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
   const material = new NodeMaterial()
   material.name = 'toon'
   material.colorNode = colorFn()
+  if (positionNodeFn != null) material.positionNode = positionNodeFn()
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow

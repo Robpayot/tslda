@@ -231,24 +231,24 @@ export default class Link {
         const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
         if (receiveShadowNames.includes(child.name)) {
           child.castCustomShadow = true
-          child.material = createLinkReceiveShadowMaterial(mapTexture)
+          child.material = createLinkReceiveShadowMaterial(mapTexture, child)
         } else {
           child.material = createLinkToonMaterial(mapTexture)
         }
       }
     })
 
-    // Shield: receive shadow
+    // Shield: receive shadow (pass mesh so SkinnedMesh gets skinned normals)
     const textureShield = this.#shield.material?.map ?? LoaderManager.defaultTexture
     this.#shield.castCustomShadow = true
-    this.#shield.material = createLinkReceiveShadowMaterial(textureShield)
+    this.#shield.material = createLinkReceiveShadowMaterial(textureShield, this.#shield)
 
     // Master shield and sword
     this.#masterAndShield.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
         const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
         child.castCustomShadow = true
-        child.material = createLinkReceiveShadowMaterial(mapTexture)
+        child.material = createLinkReceiveShadowMaterial(mapTexture, child)
       }
     })
 

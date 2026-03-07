@@ -74,13 +74,15 @@ export function createLinkToonMaterial(mapTexture) {
 }
 
 /**
- * Toon + receive shadow. Pass a real THREE.Texture.
- * To swap map, replace material with createLinkReceiveShadowMaterial(newTexture).
- * Reuses shared receiveShadow logic (see tsl-nodes/receiveShadowToon.js).
- * Uses same model-space lighting as Boat/Crane (normalLocal + sunDirLocal) so normals match.
+ * Toon + receive shadow. Pass a real THREE.Texture and optionally the mesh (required for SkinnedMesh so normals are skinned like receiveShadow.vert).
+ * To swap map, replace material with createLinkReceiveShadowMaterial(newTexture, mesh).
  */
-export function createLinkReceiveShadowMaterial(mapTexture) {
-  return createReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture)
+export function createLinkReceiveShadowMaterial(mapTexture, mesh = null) {
+  const isSkinned = mesh != null && mesh.type === 'SkinnedMesh'
+  return createReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, {
+    useWorldSpaceLighting: true,
+    skinnedMesh: isSkinned ? mesh : null,
+  })
 }
 
 /**
