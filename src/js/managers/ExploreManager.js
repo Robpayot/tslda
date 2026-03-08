@@ -585,7 +585,6 @@ class ExploreManager {
       object.position.z = object.initPos.z + playerZ
 
       const dist = getDistance(0, 0, object.position.z, object.position.x)
-
       if (object.name === 'rupee') {
         object.rotation.y += (delta / 16) * 0.02
       } else if (object.name === 'barrelRupee') {

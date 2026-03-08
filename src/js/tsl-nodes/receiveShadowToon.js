@@ -16,7 +16,7 @@ import {
   positionWorld,
   normalLocal,
   normalGeometry,
-  modelWorldMatrixInverse,
+  cameraViewMatrix,
   smoothstep,
   dot,
   normalize,
@@ -24,6 +24,7 @@ import {
   select,
   step,
   skinning,
+  transformNormalToView,
 } from 'three/tsl'
 import { Color, Vector3 } from 'three'
 import EnvManager from '../managers/EnvManager'
@@ -54,13 +55,12 @@ function fromLinear(linearRGB) {
  * Pass a real THREE.Texture; to swap at runtime, replace the material with a new one.
  *
  * @param {THREE.Texture} [mapTexture] - Diffuse map; falls back to LoaderManager.defaultTexture if null/undefined.
- * @param {{ useWorldSpaceLighting?: boolean, skinnedMesh?: THREE.SkinnedMesh }} [options]
- *   - useWorldSpaceLighting: true for Link — directional sun in local space, camera-independent.
- *   - skinnedMesh: when set (e.g. Link body part), we pass the skinned normal via varying (engine handles position; fragment normal from normalGeometry + bone skin matrix).
+ * @param {{ skinnedMesh?: THREE.SkinnedMesh }} [options]
+ *   - skinnedMesh: when set (e.g. Link body part), we pass the skinned normal via varying; otherwise we use normalLocal. Both use view-space lighting (varying + transformNormalToView), same as entityToon.
  * @returns {NodeMaterial}
  */
 export function createReceiveShadowMaterial(mapTexture, options = {}) {
-  const { useWorldSpaceLighting = false, skinnedMesh = null } = options
+  const { skinnedMesh = null } = options
   const mapTex = mapTexture ?? LoaderManager.defaultTexture
 
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
@@ -77,20 +77,23 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
   const uShadowCameraP = uniform(shadowCam?.projectionMatrix)
   const uShadowCameraV = uniform(shadowCam?.matrixWorldInverse)
 
-  // For SkinnedMesh: engine skins position in setupPosition; we only feed a skinned normal to the fragment via a varying (normalGeometry + skin matrix).
+  // Fix normals: varying + transformNormalToView (same pattern as entityToon). View-space lighting so sun is consistent.
+  const vNormalLocal = varying(vec3(0, 1, 0), 'vNormalLocal_receiveShadow')
   const skinningNode = skinnedMesh ? skinning(skinnedMesh) : null
   const vNormalSkinned = skinningNode ? varying(vec3(0, 1, 0), 'vNormalSkinned') : null
-  const positionNodeFn =
-    skinningNode
-      ? Fn(() => {
-          const boneMatrices = skinningNode.boneMatricesNode
-          const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
-          vNormalSkinned.assign(normalize(skinNormal))
-          return positionLocal
-        })
-      : null
+  const positionNodeFn = skinningNode
+    ? Fn(() => {
+        const boneMatrices = skinningNode.boneMatricesNode
+        const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
+        vNormalSkinned.assign(normalize(skinNormal))
+        return positionLocal
+      })
+    : Fn(() => {
+        vNormalLocal.assign(normalLocal)
+        return positionLocal
+      })
 
-  const normalForLight = vNormalSkinned != null ? vNormalSkinned : normalLocal
+  const normalViewNode = skinningNode != null ? transformNormalToView(vNormalSkinned) : transformNormalToView(vNormalLocal)
 
   const colorFn = Fn(() => {
     const tex = texture(mapTex, uv())
@@ -120,10 +123,8 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
     }
 
     const rawDir = normalize(uSunDir)
-    // Same raw direction for both Link and Boat (no Y/Z flip).
-    const sunDirWorld = rawDir
-    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0.0)).xyz)
-    const shadow = dot(normalForLight, sunDirLocal)
+    const sunDirView = normalize(cameraViewMatrix.mul(vec4(rawDir, 0)).xyz)
+    const shadow = dot(normalize(normalViewNode), sunDirView)
 
     const toonShading = float(1)
       .mul(smoothstep(float(0.0), float(0.1), shadow))
@@ -141,8 +142,9 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
 
   const material = new NodeMaterial()
   material.name = 'toon'
+  material.positionNode = positionNodeFn()
+  material.normalNode = normalViewNode
   material.colorNode = colorFn()
-  if (positionNodeFn != null) material.positionNode = positionNodeFn()
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow

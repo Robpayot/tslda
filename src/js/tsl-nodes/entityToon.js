@@ -19,8 +19,7 @@ import {
   normalLocal,
   modelWorldMatrix,
   modelWorldMatrixInverse,
-  transformDirection,
-  transpose,
+  transformNormalToView,
 } from 'three/tsl'
 import { Color, Vector3 } from 'three'
 import EnvManager from '../managers/EnvManager'
@@ -62,8 +61,9 @@ export function createEntityToonMaterial(options = {}) {
   const uSRGBSpace = uniform(0)
   const uTintColor = tintColor ? uniform(tintColor) : null
 
-  const vNormalWorld = varying(vec3(0, 0, 0), 'vNormalWorld')
-
+  // Fix normals for custom positionNode: varying for local normal, then transformNormalToView (same pattern as InstancedMesh/Batched).
+  const vNormalLocal = varying(vec3(0, 1, 0), `vNormalLocal_${name}`)
+  const normalViewNode = transformNormalToView(vNormalLocal)
   const shadingNode = buildToonShadingNode({
     uSunDir,
     uAmbientColor,
@@ -71,12 +71,13 @@ export function createEntityToonMaterial(options = {}) {
     uSRGBSpace,
     smoothstepMax,
     ambientMul,
-    normalWorldNode: vNormalWorld,
+    normalViewNode,
   })
 
   let positionNode = null
   if (heightMapTexture) {
     const positionNodeFn = Fn(() => {
+      vNormalLocal.assign(normalLocal)
       const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
       const uvGrid = vec2(
         float(0.5).add(wCenter.x.div(uScaleOcean)),
@@ -92,14 +93,12 @@ export function createEntityToonMaterial(options = {}) {
       const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
       const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
       const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
-      const displacedLocal = positionLocal.add(localDisp.xyz)
-      vNormalWorld.assign(normalize(transformDirection(normalLocal, transpose(modelWorldMatrixInverse))))
-      return displacedLocal
+      return positionLocal.add(localDisp.xyz)
     })
     positionNode = positionNodeFn()
   } else {
     const positionNodeFn = Fn(() => {
-      vNormalWorld.assign(normalize(transformDirection(normalLocal, transpose(modelWorldMatrixInverse))))
+      vNormalLocal.assign(normalLocal)
       return positionLocal
     })
     positionNode = positionNodeFn()
@@ -116,6 +115,7 @@ export function createEntityToonMaterial(options = {}) {
   const material = new NodeMaterial()
   material.name = name
   material.positionNode = positionNode
+  material.normalNode = normalViewNode
   material.colorNode = colorFn()
   material.uScaleOcean = uScaleOcean
   material.uSunDir = uSunDir

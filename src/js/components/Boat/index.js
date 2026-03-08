@@ -405,15 +405,15 @@ export default class Boat {
     // this.sailMesh.scale.x = ControllerManager.boat.velocityP * -this.mastDir
 
     // // Treasures
-    // for (let i = 0; i < this.#rupees.length; i++) {
-    //   const rupee = this.#rupees[i]
-    //   rupee.rotation.y += (delta / 16) * 0.02
-    // }
+    for (let i = 0; i < this.#rupees.length; i++) {
+      const rupee = this.#rupees[i]
+      rupee.rotation.y += (delta / 16) * 0.02
+    }
 
-    // for (let i = 0; i < this.#triforceShards.length; i++) {
-    //   const shard = this.#triforceShards[i]
-    //   shard.rotation.z += (delta / 16) * 0.02
-    // }
+    for (let i = 0; i < this.#triforceShards.length; i++) {
+      const shard = this.#triforceShards[i]
+      shard.rotation.z += (delta / 16) * 0.02
+    }
   }
 
   resize({ width, height }) {}

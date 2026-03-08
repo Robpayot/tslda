@@ -80,7 +80,6 @@ export function createLinkToonMaterial(mapTexture) {
 export function createLinkReceiveShadowMaterial(mapTexture, mesh = null) {
   const isSkinned = mesh != null && mesh.type === 'SkinnedMesh'
   return createReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, {
-    useWorldSpaceLighting: true,
     skinnedMesh: isSkinned ? mesh : null,
   })
 }

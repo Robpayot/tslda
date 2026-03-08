@@ -14,6 +14,7 @@ import {
   positionWorld,
   normalLocal,
   modelWorldMatrixInverse,
+  cameraViewMatrix,
   smoothstep,
   dot,
   normalize,
@@ -42,6 +43,7 @@ function fromLinear(linearRGB) {
  *
  * @param {object} [options.positionWorldNode] - Vertex-varying world position (required if normalWorldNode is set).
  * @param {object} [options.normalWorldNode] - Vertex-varying world normal. If set, use world-space lighting (like Link in receiveShadowToon).
+ * @param {object} [options.normalViewNode] - View-space normal (e.g. from transformNormalToView(normalLocal)). If set, use view-space lighting: dot(normalView, sunDirView).
  * @param {object} [options.sunDirWorldNode] - Vertex-varying sun direction (world space). If unset and normalWorldNode is set, sun is treated as directional: normalize(uSunDir), no position — camera-independent.
  */
 export function buildToonShadingNode({
@@ -54,20 +56,25 @@ export function buildToonShadingNode({
   positionWorldNode = null,
   normalLocalNode = null,
   normalWorldNode = null,
+  normalViewNode = null,
   sunDirWorldNode = null,
 }) {
   return Fn(() => {
+    const rawDir = normalize(uSunDir)
     const worldPos = positionWorldNode != null ? positionWorldNode : positionWorld
     const sunDirFromPosition = normalize(uSunDir.sub(worldPos))
-    const rawDir = normalize(uSunDir)
     const sunDirDirectional = vec3(rawDir.x, rawDir.y.negate(), rawDir.z.negate())
     const baseSunDir = normalWorldNode != null ? sunDirDirectional : sunDirFromPosition
     const sunDirWorld = sunDirWorldNode != null ? normalize(sunDirWorldNode) : baseSunDir
-
-    const shadow =
-      normalWorldNode != null
-        ? dot(normalize(normalWorldNode), sunDirWorld)
-        : dot(normalLocalNode != null ? normalLocalNode : normalLocal, normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz))
+    const sunDirView = normalViewNode != null ? normalize(cameraViewMatrix.mul(vec4(rawDir, 0)).xyz) : null
+    let shadow
+    if (normalViewNode != null) {
+      shadow = dot(normalize(normalViewNode), sunDirView)
+    } else if (normalWorldNode != null) {
+      shadow = dot(normalize(normalWorldNode), sunDirWorld)
+    } else {
+      shadow = dot(normalLocalNode != null ? normalLocalNode : normalLocal, normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz))
+    }
     const toonShading = float(1)
       .mul(smoothstep(float(0.0), float(smoothstepMax), shadow))
       .mul(0.9)
