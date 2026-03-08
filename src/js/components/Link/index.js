@@ -1,4 +1,4 @@
-import { AnimationMixer, LoopOnce, Vector2, LinearSRGBColorSpace } from 'three'
+import { AnimationMixer, LoopOnce, SRGBColorSpace, Vector2 } from 'three'
 import LoaderManager from '@/js/managers/LoaderManager'
 import EnvManager from '@/js/managers/EnvManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -274,16 +274,17 @@ export default class Link {
     eyeRight.renderOrder = 1
     this.#eyeRight = eyeRight
 
-    // Pupils: toon + UV transform + mask
+    // Pupils: same receive shadow as boat, UV transform + mask. Force sRGB so they decode like GLB.
     const texPupil = LoaderManager.get('pupil').texture
+    texPupil.colorSpace = SRGBColorSpace
     texPupil.flipY = false
-    pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+    pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex], pupilLeft)
     pupilLeft.material.uFlip.value = -1
     pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
     pupilLeft.material.uScale.value = this.#settings.pupil.scale
     pupilLeft.renderOrder = 100
 
-    pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex])
+    pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex], pupilRight)
     pupilRight.material.uFlip.value = 1
     pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
     pupilRight.material.uScale.value = this.#settings.pupil.scale
@@ -292,17 +293,17 @@ export default class Link {
     this.#pupilLeft = pupilLeft
     this.#pupilRight = pupilRight
 
-    // Mouth textures: force linear color space so sampler does not sRGB-decode; we use tex directly in shader (match mouth.frag: base raw * toonshading sRGB).
+    // Mouth textures: force sRGB so they decode on sample like GLB color maps (face/boat); otherwise encoding mismatch makes mouth too light.
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`mouth${i + 1}`).texture
+      tex.colorSpace = SRGBColorSpace
       tex.flipY = false
-      tex.colorSpace = LinearSRGBColorSpace
       this.#mouthTextures.push(tex)
     }
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`dark-mouth${i + 1}`).texture
+      tex.colorSpace = SRGBColorSpace
       tex.flipY = false
-      tex.colorSpace = LinearSRGBColorSpace
       this.#darkMouthTextures.push(tex)
     }
 
@@ -332,7 +333,7 @@ export default class Link {
         this.#mouthIndex = 0
       }
 
-      this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
+      this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex], this.#mouth)
 
       el.innerHTML = this.#mouthIndex + 1
     } else if (type === 'eye-left') {
@@ -345,7 +346,8 @@ export default class Link {
 
       this.#eyeLeft.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeLeftIndex])
       const texPupil = LoaderManager.get(this.#isDark ? 'dark_pupil' : 'pupil').texture
-      this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+      texPupil.colorSpace = SRGBColorSpace
+      this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex], this.#pupilLeft)
       this.#pupilLeft.material.uFlip.value = -1
       this.#pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
       this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
@@ -361,7 +363,8 @@ export default class Link {
 
       this.#eyeRight.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeRightIndex])
       const texPupilR = LoaderManager.get(this.#isDark ? 'dark_pupil' : 'pupil').texture
-      this.#pupilRight.material = createPupilMaterial(texPupilR, this.#eyesTextures[this.#eyeRightIndex])
+      texPupilR.colorSpace = SRGBColorSpace
+      this.#pupilRight.material = createPupilMaterial(texPupilR, this.#eyesTextures[this.#eyeRightIndex], this.#pupilRight)
       this.#pupilRight.material.uFlip.value = 1
       this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
       this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
@@ -377,6 +380,7 @@ export default class Link {
     darkTunic.needsUpdate = true
 
     const texPupil = LoaderManager.get('dark_pupil').texture
+    texPupil.colorSpace = SRGBColorSpace
     texPupil.flipY = false
     texPupil.needsUpdate = true
 
@@ -412,12 +416,12 @@ export default class Link {
     this.#mouth.material = createLinkMouthMaterial(this.#darkMouthTextures[this.#mouthIndex], this.#mouth)
     this.#mouth.receiveCustomShadow = true
 
-    this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
+    this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex], this.#pupilLeft)
     this.#pupilLeft.material.uFlip.value = -1
     this.#pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
     this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
 
-    this.#pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex])
+    this.#pupilRight.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeRightIndex], this.#pupilRight)
     this.#pupilRight.material.uFlip.value = 1
     this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
     this.#pupilRight.material.uScale.value = this.#settings.pupil.scale

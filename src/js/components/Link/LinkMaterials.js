@@ -3,7 +3,6 @@ import {
   Fn,
   uniform,
   float,
-  vec2,
   vec3,
   vec4,
   uv,
@@ -18,10 +17,10 @@ import {
   select,
   step,
 } from 'three/tsl'
-import { Color, Vector2, Vector3 } from 'three'
+import { Color, Vector3 } from 'three'
 import EnvManager from '../../managers/EnvManager'
 import LoaderManager from '../../managers/LoaderManager'
-import { createReceiveShadowMaterial, createMouthReceiveShadowMaterial } from '../../tsl-nodes/receiveShadowToon'
+import { createReceiveShadowMaterial, createPupilReceiveShadowMaterial } from '../../tsl-nodes/receiveShadowToon'
 
 function fromLinear(linearRGB) {
   const higher = linearRGB.rgb
@@ -85,63 +84,22 @@ export function createLinkReceiveShadowMaterial(mapTexture, mesh = null) {
 }
 
 /**
- * Mouth: receiveShadow.vert vertex + mouth.frag color logic (see createMouthReceiveShadowMaterial).
- * Pass the mouth mesh so normals are skinned. To swap texture, replace material with createLinkMouthMaterial(newTexture, mouthMesh).
+ * Mouth: same receive shadow as boat/face. Pass the mouth mesh so normals are skinned. To swap texture, replace material with createLinkMouthMaterial(newTexture, mouthMesh).
  */
 export function createLinkMouthMaterial(mapTexture, mouthMesh = null) {
-  return createMouthReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, mouthMesh)
+  return createLinkReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, mouthMesh)
 }
 
 /**
- * Pupil material: UV transform (uDir, uScale, uFlip), mask alpha, toon.
- * Pass real THREE.Texture for map and mask. To swap, replace material with createPupilMaterial(newMap, newMask).
+ * Pupil material: same receive shadow as boat/face, with UV transform (uDir, uScale, uFlip) and mask alpha.
+ * Pass map, mask, and optionally mesh. Set texture.colorSpace = SRGBColorSpace on pupil textures. To swap, replace material with createPupilMaterial(newMap, newMask, mesh).
  */
-export function createPupilMaterial(mapTexture, maskTexture) {
-  const mapTex = mapTexture ?? LoaderManager.defaultTexture
-  const maskTex = maskTexture ?? LoaderManager.defaultTexture
-  const uDir = uniform(new Vector2(0, 0))
-  const uScale = uniform(1.05)
-  const uFlip = uniform(-1)
-
-  const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
-  const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
-  const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
-
-  const colorFn = Fn(() => {
-    const mask = texture(maskTex, uv())
-    const uvBase = uv()
-    const uvOffset = vec2(uDir.x.mul(uFlip), uDir.y)
-    const uvTransformed = uvBase.add(uvOffset).sub(0.5).div(uScale).add(0.5)
-    const tex = texture(mapTex, uvTransformed)
-    const alpha = tex.a.mul(smoothstep(float(0.0), float(0.4), mask.r))
-
-    const sunDirWorld = normalize(uSunDir.sub(positionWorld))
-    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz)
-    const shadow = dot(normalLocal, sunDirLocal)
-    const toonShading = float(1)
-      .mul(smoothstep(float(0.0), float(0.1), shadow))
-      .mul(0.9)
-      .mul(uCoefShadow)
-      .add(uAmbientColor.r)
-
-    const linearShading = vec3(toonShading, toonShading, toonShading)
-    const srgbShading = fromLinear(vec4(linearShading, 1.0)).rgb
-
-    return vec4(tex.rgb.mul(srgbShading), alpha)
-  })
-
-  const material = new NodeMaterial()
-  material.name = 'toon'
-  material.transparent = true
-  material.colorNode = colorFn()
-  material.uDir = uDir
-  material.uScale = uScale
-  material.uFlip = uFlip
-  material.uSunDir = uSunDir
-  material.uAmbientColor = uAmbientColor
-  material.uCoefShadow = uCoefShadow
-
-  return material
+export function createPupilMaterial(mapTexture, maskTexture, mesh = null) {
+  return createPupilReceiveShadowMaterial(
+    mapTexture ?? LoaderManager.defaultTexture,
+    maskTexture ?? LoaderManager.defaultTexture,
+    mesh,
+  )
 }
 
 /**

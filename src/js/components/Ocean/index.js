@@ -262,21 +262,25 @@ export default class Ocean extends Object3D {
       const alpha = smoothstep(float(0.5), float(0.505), float(1).sub(circleFrag))
       const oceanTex = vec4(texColor, alpha)
 
-      const rotateUV = (uvVec, rotation, mid) =>
+      // Trail must scroll WITH the ocean texture (same as vUv+uDirTex) so it stays painted on the water = sticks to boat.
+      const scale = vRepeatTrail.div(this.uRepeat)
+      const trailGridOffset = vec2(this.uDirTex.x.mul(scale), this.uDirTex.y.mul(scale))
+      const vUvTrailScrolled = vUvTrail.add(trailGridOffset)
+      const trailCenter = vec2(0.5, 0.5).add(trailGridOffset)
+
+      const rotateUVAround = (uvVec, rotation, center) =>
         vec2(
-          cos(rotation)
-            .mul(uvVec.x.sub(mid))
-            .add(sin(rotation).mul(uvVec.y.sub(mid)))
-            .add(mid),
-          cos(rotation)
-            .mul(uvVec.y.sub(mid))
-            .sub(sin(rotation).mul(uvVec.x.sub(mid)))
-            .add(mid)
+          cos(rotation).mul(uvVec.x.sub(center.x)).add(sin(rotation).mul(uvVec.y.sub(center.y))).add(center.x),
+          cos(rotation).mul(uvVec.y.sub(center.y)).sub(sin(rotation).mul(uvVec.x.sub(center.x))).add(center.y)
         )
 
-      const distortUVTrail = rotateUV(vec2(vUvTrail.x, vUvTrail.y), this.uTrailRotation, float(0.5))
+      const distortUVTrail = rotateUVAround(
+        vec2(vUvTrailScrolled.x, vUvTrailScrolled.y),
+        this.uTrailRotation,
+        trailCenter
+      )
       const trailTexOffset = this.uTrailProgress.mul(vRepeatTrail)
-      const distortionView = distance(vec2(0.5, 0.5), vUvTrail)
+      const distortionView = distance(trailCenter, vUvTrailScrolled)
 
       const trailOff = distortUVTrail
         .sub(vec2(0.5, 0.5))

@@ -8,6 +8,7 @@ import {
   uniform,
   varying,
   float,
+  vec2,
   vec3,
   vec4,
   uv,
@@ -26,7 +27,7 @@ import {
   skinning,
   transformNormalToView,
 } from 'three/tsl'
-import { Color, Vector3 } from 'three'
+import { Color, Vector2, Vector3 } from 'three'
 import EnvManager from '../managers/EnvManager'
 import LoaderManager from '../managers/LoaderManager'
 import Settings from '../utils/Settings'
@@ -40,13 +41,6 @@ const BIT_SHIFT = vec4(
 
 function unpackRGBAToDepth(color) {
   return dot(color, BIT_SHIFT)
-}
-
-function fromLinear(linearRGB) {
-  const higher = linearRGB.rgb.pow(1.0 / 2.4).mul(1.055).sub(0.055)
-  const lower = linearRGB.rgb.mul(12.92)
-  const t = step(float(0.0031308), linearRGB.rgb)
-  return vec4(mix(lower, higher, t), linearRGB.a)
 }
 
 /**
@@ -66,27 +60,35 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
 }
 
 /**
- * Mouth material: receiveShadow.vert vertex + mouth.frag color logic.
- * Same as receive shadow (shadow coords, view-space normal, toon) but explicitly matches @glsl/link/mouth.frag:
- * base = texture(map, uv), toonshading = smoothstep(0,0.1,shadow)*0.9*coefShadow + ambient.r, *= receivedShadow, fromLinear;
- * output = vec4(base.rgb * toonshading.rgb, 1.0). Shading in sRGB (mouth.frag: "need to convert shadow only to SRGB").
- * Pass skinnedMesh (e.g. link-mouth) so normals are skinned (receiveShadow.vert USE_BONES path).
+ * Pupil material: same receive shadow as boat/face, with UV transform (uDir, uScale, uFlip) and mask alpha.
+ * Pass map texture, mask texture, and optionally the mesh (for skinned normals). Set texture.colorSpace = SRGBColorSpace on pupil textures so they decode like GLB.
  *
  * @param {THREE.Texture} [mapTexture]
- * @param {THREE.SkinnedMesh} [skinnedMesh] - Mouth mesh so normals are skinned.
+ * @param {THREE.Texture} [maskTexture]
+ * @param {THREE.Mesh|THREE.SkinnedMesh|null} [mesh]
  * @returns {NodeMaterial}
  */
-export function createMouthReceiveShadowMaterial(mapTexture, skinnedMesh = null) {
+export function createPupilReceiveShadowMaterial(mapTexture, maskTexture, mesh = null) {
   const mapTex = mapTexture ?? LoaderManager.defaultTexture
-  return createReceiveShadowMaterialInternal(mapTex, { skinnedMesh, sRGBShading: true })
+  const maskTex = maskTexture ?? LoaderManager.defaultTexture
+  const isSkinned = mesh != null && mesh.type === 'SkinnedMesh'
+  return createReceiveShadowMaterialInternal(mapTex, {
+    skinnedMesh: isSkinned ? mesh : null,
+    maskTexture: maskTex,
+    uvTransform: true,
+  })
 }
 
 function createReceiveShadowMaterialInternal(mapTex, options) {
-  const { skinnedMesh = null, sRGBShading = false } = options
+  const { skinnedMesh = null, sRGBShading = false, maskTexture = null, uvTransform = false } = options
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
   const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
   const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
   const uSRGBSpace = uniform(sRGBShading ? 1 : 0)
+
+  const uDir = uvTransform ? uniform(new Vector2(0, 0)) : null
+  const uScale = uvTransform ? uniform(1.05) : null
+  const uFlip = uvTransform ? uniform(-1) : null
 
   const depthMapTex =
     Settings.castShadows && EnvManager.sunShadowMap?.map?.texture
@@ -116,7 +118,12 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   const normalViewNode = skinningNode != null ? transformNormalToView(vNormalSkinned) : transformNormalToView(vNormalLocal)
 
   const colorFn = Fn(() => {
-    const tex = texture(mapTex, uv())
+    const uvBase = uv()
+    const uvTransformed =
+      uvTransform && uDir && uScale && uFlip
+        ? uvBase.add(vec2(uDir.x.mul(uFlip), uDir.y)).sub(0.5).div(uScale).add(0.5)
+        : uvBase
+    const tex = texture(mapTex, uvTransformed)
 
     let receivedShadow = float(1.0)
     if (Settings.castShadows && shadowCam) {
@@ -153,15 +160,12 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
       .add(uAmbientColor.r)
       .mul(receivedShadow)
 
-    const linearShading = vec4(toonShading, toonShading, toonShading, 1.0)
-    const srgbShading = fromLinear(linearShading).rgb
-    const finalShading = select(uSRGBSpace.equal(1.0), srgbShading, linearShading.rgb)
-
-    // mouth.frag: base (raw) * toonshading (fromLinear). Mouth textures use LinearSRGBColorSpace so sampler returns raw (no decode); use tex directly * srgbShading.
-    if (sRGBShading) {
-      return vec4(tex.rgb.mul(srgbShading), 1.0)
+    if (maskTexture) {
+      const mask = texture(maskTexture, uvBase)
+      const alpha = tex.a.mul(smoothstep(float(0.0), float(0.4), mask.r))
+      return vec4(tex.rgb.mul(toonShading), alpha)
     }
-    return vec4(tex.rgb.mul(finalShading), 1.0)
+    return vec4(tex.rgb.mul(toonShading), 1.0)
   })
 
   const material = new NodeMaterial()
@@ -172,9 +176,15 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow
-  // material.uSRGBSpace = uSRGBSpace
+  material.uSRGBSpace = uSRGBSpace
   material.uShadowCameraP = uShadowCameraP
   material.uShadowCameraV = uShadowCameraV
+  if (maskTexture) {
+    material.transparent = true
+    material.uDir = uDir
+    material.uScale = uScale
+    material.uFlip = uFlip
+  }
 
   return material
 }
