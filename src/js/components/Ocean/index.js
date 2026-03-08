@@ -262,29 +262,22 @@ export default class Ocean extends Object3D {
       const alpha = smoothstep(float(0.5), float(0.505), float(1).sub(circleFrag))
       const oceanTex = vec4(texColor, alpha)
 
-      // Trail must scroll WITH the ocean texture (same as vUv+uDirTex) so it stays painted on the water = sticks to boat.
-      const scale = vRepeatTrail.div(this.uRepeat)
-      const trailGridOffset = vec2(this.uDirTex.x.mul(scale), this.uDirTex.y.mul(scale))
-      const vUvTrailScrolled = vUvTrail.add(trailGridOffset)
-      const trailCenter = vec2(0.5, 0.5).add(trailGridOffset)
-
-      const rotateUVAround = (uvVec, rotation, center) =>
+      // Trail — match GLSL main.frag: vUvTrail only, rotate around 0.5, same offset and transform.
+      const mid = float(0.5)
+      const rotateUV = (uvVec, rotation, m) =>
         vec2(
-          cos(rotation).mul(uvVec.x.sub(center.x)).add(sin(rotation).mul(uvVec.y.sub(center.y))).add(center.x),
-          cos(rotation).mul(uvVec.y.sub(center.y)).sub(sin(rotation).mul(uvVec.x.sub(center.x))).add(center.y)
+          cos(rotation).mul(uvVec.x.sub(m)).add(sin(rotation).mul(uvVec.y.sub(m))).add(m),
+          cos(rotation).mul(uvVec.y.sub(m)).sub(sin(rotation).mul(uvVec.x.sub(m))).add(m)
         )
 
-      const distortUVTrail = rotateUVAround(
-        vec2(vUvTrailScrolled.x, vUvTrailScrolled.y),
-        this.uTrailRotation,
-        trailCenter
-      )
+      const distortUVTrail = rotateUV(vec2(vUvTrail.x, vUvTrail.y), this.uTrailRotation, mid)
       const trailTexOffset = this.uTrailProgress.mul(vRepeatTrail)
-      const distortionView = distance(trailCenter, vUvTrailScrolled)
+      const distortionView = distance(vec2(0.5, 0.5), vUvTrail)
 
-      const trailOff = distortUVTrail
-        .sub(vec2(0.5, 0.5))
-        .sub(vec2(0, 0.5).sub(trailTexOffset).add(this.uTrailJumpOffset))
+      // GLSL: distortUVTrail.x -= 0.5; distortUVTrail.y -= 0.5 - trailTexOffset + trailJumpOffset;
+      const trailOff = distortUVTrail.sub(
+        vec2(mid, mid.sub(trailTexOffset).add(this.uTrailJumpOffset))
+      )
       const trailPosYOffset = 0.5
       const yCoef = trailOff.y.sub(trailTexOffset).div(nbTrailVisible).sub(float(trailPosYOffset))
       const trailX = trailOff.x

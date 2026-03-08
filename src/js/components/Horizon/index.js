@@ -36,7 +36,7 @@ export default class Horizon extends Object3D {
     })
 
     this.#material = new NodeMaterial()
-    this.#material.fragmentNode = fragmentFn()
+    this.#material.colorNode = fragmentFn()
     this.#material.side = BackSide
     this.#material.depthTest = false
     this.#material.depthWrite = false
