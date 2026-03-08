@@ -21,7 +21,7 @@ import {
 import { Color, Vector2, Vector3 } from 'three'
 import EnvManager from '../../managers/EnvManager'
 import LoaderManager from '../../managers/LoaderManager'
-import { createReceiveShadowMaterial } from '../../tsl-nodes/receiveShadowToon'
+import { createReceiveShadowMaterial, createMouthReceiveShadowMaterial } from '../../tsl-nodes/receiveShadowToon'
 
 function fromLinear(linearRGB) {
   const higher = linearRGB.rgb
@@ -82,6 +82,14 @@ export function createLinkReceiveShadowMaterial(mapTexture, mesh = null) {
   return createReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, {
     skinnedMesh: isSkinned ? mesh : null,
   })
+}
+
+/**
+ * Mouth: receiveShadow.vert vertex + mouth.frag color logic (see createMouthReceiveShadowMaterial).
+ * Pass the mouth mesh so normals are skinned. To swap texture, replace material with createLinkMouthMaterial(newTexture, mouthMesh).
+ */
+export function createLinkMouthMaterial(mapTexture, mouthMesh = null) {
+  return createMouthReceiveShadowMaterial(mapTexture ?? LoaderManager.defaultTexture, mouthMesh)
 }
 
 /**

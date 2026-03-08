@@ -62,11 +62,31 @@ function fromLinear(linearRGB) {
 export function createReceiveShadowMaterial(mapTexture, options = {}) {
   const { skinnedMesh = null } = options
   const mapTex = mapTexture ?? LoaderManager.defaultTexture
+  return createReceiveShadowMaterialInternal(mapTex, { skinnedMesh, sRGBShading: false })
+}
 
+/**
+ * Mouth material: receiveShadow.vert vertex + mouth.frag color logic.
+ * Same as receive shadow (shadow coords, view-space normal, toon) but explicitly matches @glsl/link/mouth.frag:
+ * base = texture(map, uv), toonshading = smoothstep(0,0.1,shadow)*0.9*coefShadow + ambient.r, *= receivedShadow, fromLinear;
+ * output = vec4(base.rgb * toonshading.rgb, 1.0). Shading in sRGB (mouth.frag: "need to convert shadow only to SRGB").
+ * Pass skinnedMesh (e.g. link-mouth) so normals are skinned (receiveShadow.vert USE_BONES path).
+ *
+ * @param {THREE.Texture} [mapTexture]
+ * @param {THREE.SkinnedMesh} [skinnedMesh] - Mouth mesh so normals are skinned.
+ * @returns {NodeMaterial}
+ */
+export function createMouthReceiveShadowMaterial(mapTexture, skinnedMesh = null) {
+  const mapTex = mapTexture ?? LoaderManager.defaultTexture
+  return createReceiveShadowMaterialInternal(mapTex, { skinnedMesh, sRGBShading: true })
+}
+
+function createReceiveShadowMaterialInternal(mapTex, options) {
+  const { skinnedMesh = null, sRGBShading = false } = options
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
   const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
   const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
-  const uSRGBSpace = uniform(0)
+  const uSRGBSpace = uniform(sRGBShading ? 1 : 0)
 
   const depthMapTex =
     Settings.castShadows && EnvManager.sunShadowMap?.map?.texture
@@ -137,6 +157,10 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
     const srgbShading = fromLinear(linearShading).rgb
     const finalShading = select(uSRGBSpace.equal(1.0), srgbShading, linearShading.rgb)
 
+    // mouth.frag: base (raw) * toonshading (fromLinear). Mouth textures use LinearSRGBColorSpace so sampler returns raw (no decode); use tex directly * srgbShading.
+    if (sRGBShading) {
+      return vec4(tex.rgb.mul(srgbShading), 1.0)
+    }
     return vec4(tex.rgb.mul(finalShading), 1.0)
   })
 
@@ -148,7 +172,7 @@ export function createReceiveShadowMaterial(mapTexture, options = {}) {
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow
-  material.uSRGBSpace = uSRGBSpace
+  // material.uSRGBSpace = uSRGBSpace
   material.uShadowCameraP = uShadowCameraP
   material.uShadowCameraV = uShadowCameraV
 

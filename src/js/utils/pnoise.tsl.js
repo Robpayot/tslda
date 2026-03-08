@@ -7,7 +7,7 @@
  * @param {import('three/tsl').Node} rep - vec2 period for periodic noise
  * @returns {import('three/tsl').Node} float noise value
  */
-import { Fn, float, vec2, vec4, floor, fract, mix } from 'three/tsl'
+import { Fn, float, vec2, vec3, vec4, floor, fract, mix, max, select } from 'three/tsl'
 
 const C1 = 1.0 / 289.0
 const C2 = 34.0
@@ -20,6 +20,15 @@ function mod289(x) {
 
 function permute(x) {
   return mod289(x.mul(C2).add(1.0).mul(x))
+}
+
+// permute for vec3 (used by snoise)
+function permuteVec3(x) {
+  return vec3(
+    permute(x.x),
+    permute(x.y),
+    permute(x.z)
+  )
 }
 
 function taylorInvSqrt(r) {
@@ -76,4 +85,53 @@ export const pnoise = Fn(([P, rep]) => {
   const n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x)
   const n_xy = mix(n_x.x, n_x.y, fade_xy.y)
   return float(2.3).mul(n_xy)
+})
+
+// Simplex 2D noise (snoise) - TSL conversion of Gustavson's implementation
+const C_SNOISE = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439)
+
+export const snoise = Fn(([v]) => {
+  const C_yy = vec2(C_SNOISE.y, C_SNOISE.y)
+  const C_xx = vec2(C_SNOISE.x, C_SNOISE.x)
+  const C_xxzz = vec4(C_SNOISE.x, C_SNOISE.x, C_SNOISE.z, C_SNOISE.z)
+
+  const i = floor(v.add(v.dot(C_yy)))
+  const x0 = v.sub(i).add(vec2(i.dot(C_xx), i.dot(C_xx)))
+  const i1 = select(x0.x.greaterThan(x0.y), vec2(1.0, 0.0), vec2(0.0, 1.0))
+
+  const x0_xyxy = vec4(x0.x, x0.y, x0.x, x0.y)
+  const x12 = x0_xyxy.add(C_xxzz)
+  const x12_xy = vec2(x12.x, x12.y).sub(i1)
+  const x12_updated = vec4(x12_xy.x, x12_xy.y, x12.z, x12.w)
+
+  const iMod = vec2(i.x.mod(289.0), i.y.mod(289.0))
+  const p = permuteVec3(
+    permuteVec3(
+      vec3(0.0, i1.y, 1.0).add(iMod.y)
+    ).add(vec3(0.0, i1.x, 1.0).add(iMod.x))
+  )
+
+  const d0 = x0.dot(x0)
+  const d1 = vec2(x12_updated.x, x12_updated.y).dot(vec2(x12_updated.x, x12_updated.y))
+  const d2 = vec2(x12_updated.z, x12_updated.w).dot(vec2(x12_updated.z, x12_updated.w))
+  const m = max(
+    vec3(0.5, 0.5, 0.5).sub(vec3(d0, d1, d2)),
+    vec3(0.0, 0.0, 0.0)
+  )
+  const m2 = m.mul(m).mul(m).mul(m)
+
+  const x = fract(p.mul(C_SNOISE.w)).mul(2.0).sub(1.0)
+  const h = x.abs().sub(0.5)
+  const ox = floor(x.add(0.5))
+  const a0 = x.sub(ox)
+  const mScaled = m2.mul(
+    float(C3).sub(float(C4).mul(a0.mul(a0).add(h.mul(h))))
+  )
+
+  const gx = a0.x.mul(x0.x).add(h.x.mul(x0.y))
+  const gy = a0.y.mul(x12_updated.x).add(h.y.mul(x12_updated.y))
+  const gz = a0.z.mul(x12_updated.z).add(h.z.mul(x12_updated.w))
+  const g = vec3(gx, gy, gz)
+
+  return float(130.0).mul(mScaled.dot(g))
 })

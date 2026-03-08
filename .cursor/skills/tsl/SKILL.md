@@ -558,6 +558,8 @@ Pass `uSunDir` as `uniform(light.position)` (reference, not clone) so updates ar
     .fragmentNode   // vec4 - replace entire fragment stage
     .vertexNode     // vec4 - replace entire vertex stage
 
+**NodeMaterial options when overriding colorNode:** Do **not** pass options in `new NodeMaterial({ ... })` — they are not applied. Create with `new NodeMaterial()` and set properties after on the instance, e.g. `material.transparent = true`, `material.depthWrite = false`, `material.blending = AdditiveBlending`, `material.side = DoubleSide`.
+
 ### MeshStandardNodeMaterial
 
     .roughnessNode  // float

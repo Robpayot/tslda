@@ -1,4 +1,4 @@
-import { AnimationMixer, LoopOnce, Vector2 } from 'three'
+import { AnimationMixer, LoopOnce, Vector2, LinearSRGBColorSpace } from 'three'
 import LoaderManager from '@/js/managers/LoaderManager'
 import EnvManager from '@/js/managers/EnvManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -7,6 +7,7 @@ import { EventBusSingleton } from 'light-event-bus'
 import {
   createLinkToonMaterial,
   createLinkReceiveShadowMaterial,
+  createLinkMouthMaterial,
   createPupilMaterial,
   createLinkBasicMaterial,
 } from './LinkMaterials'
@@ -181,8 +182,7 @@ export default class Link {
       arrMouth = this.#darkMouthTextures
     }
     this.#mouthIndex = 5
-    this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
-    this.#mouth.material.uSRGBSpace.value = 1
+    this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
   }
 
   _resetTreasureAnimation = () => {
@@ -202,8 +202,7 @@ export default class Link {
       arrMouth = this.#darkMouthTextures
     }
     this.#mouthIndex = 0
-    this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
-    this.#mouth.material.uSRGBSpace.value = 1
+    this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
   }
 
   _createMaterials() {
@@ -293,20 +292,21 @@ export default class Link {
     this.#pupilLeft = pupilLeft
     this.#pupilRight = pupilRight
 
-    // Mouth textures: no colorSpace so sampled as-is (match WebGL mouth.frag: map used raw, shading in sRGB)
+    // Mouth textures: force linear color space so sampler does not sRGB-decode; we use tex directly in shader (match mouth.frag: base raw * toonshading sRGB).
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`mouth${i + 1}`).texture
       tex.flipY = false
+      tex.colorSpace = LinearSRGBColorSpace
       this.#mouthTextures.push(tex)
     }
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`dark-mouth${i + 1}`).texture
       tex.flipY = false
+      tex.colorSpace = LinearSRGBColorSpace
       this.#darkMouthTextures.push(tex)
     }
 
-    this.#mouth.material = createLinkReceiveShadowMaterial(this.#mouthTextures[this.#mouthIndex])
-    this.#mouth.material.uSRGBSpace.value = 1 // match WebGL mouth.frag: shading in sRGB
+    this.#mouth.material = createLinkMouthMaterial(this.#mouthTextures[this.#mouthIndex], this.#mouth)
     this.#mouth.receiveCustomShadow = true
   }
 
@@ -332,8 +332,7 @@ export default class Link {
         this.#mouthIndex = 0
       }
 
-      this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex])
-      this.#mouth.material.uSRGBSpace.value = 1
+      this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
 
       el.innerHTML = this.#mouthIndex + 1
     } else if (type === 'eye-left') {
@@ -410,8 +409,7 @@ export default class Link {
       }
     })
 
-    this.#mouth.material = createLinkReceiveShadowMaterial(this.#darkMouthTextures[this.#mouthIndex])
-    this.#mouth.material.uSRGBSpace.value = 1
+    this.#mouth.material = createLinkMouthMaterial(this.#darkMouthTextures[this.#mouthIndex], this.#mouth)
     this.#mouth.receiveCustomShadow = true
 
     this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex])
@@ -497,11 +495,10 @@ export default class Link {
       this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
 
       if (this.#settings.pupil.switchMouth) {
-        this.#mouth.material = createLinkReceiveShadowMaterial(LoaderManager.get('mouth7').texture)
+        this.#mouth.material = createLinkMouthMaterial(LoaderManager.get('mouth7').texture, this.#mouth)
       } else {
-        this.#mouth.material = createLinkReceiveShadowMaterial(LoaderManager.get('mouth1').texture)
+        this.#mouth.material = createLinkMouthMaterial(LoaderManager.get('mouth1').texture, this.#mouth)
       }
-      this.#mouth.material.uSRGBSpace.value = 1
     }
 
     const debug = this.#debug.addFolder({ title: 'Link', expanded: false })

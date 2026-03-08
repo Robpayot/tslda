@@ -16,12 +16,12 @@ import {
   modelWorldMatrixInverse,
   smoothstep,
   max,
+  min,
 } from 'three/tsl'
 import { AdditiveBlending, Color, DoubleSide } from 'three'
-import { pnoise } from '../utils/pnoise.tsl.js'
+import { snoise } from '../utils/pnoise.tsl.js'
 
 const SPEED = 0.03
-const NOISE_PERIOD = 100
 
 function createHeightmapPositionNode(heightMapTexture, uScaleOcean) {
   return Fn(() => {
@@ -52,32 +52,32 @@ export function createLightRingMaterial(color, heightMapTexture, scaleOcean = 30
   const uColor = uniform(color instanceof Color ? color : new Color(color))
   const uTime = uniform(0)
 
-  const rep = vec2(NOISE_PERIOD, NOISE_PERIOD)
-
   const positionNode = createHeightmapPositionNode(heightMapTexture, uScaleOcean)()
 
   const colorFn = Fn(() => {
     const uvBase = uv()
     const t = uTime.mul(SPEED)
+    // Match original lightRing.frag: P = abs((vUv.x - 0.5) * 2) + uTime * speed, vUv.y
     const P1 = vec2(uvBase.x.sub(0.5).mul(2.0).abs().add(t), uvBase.y)
-    const n1 = pnoise(P1, rep)
-    const n2 = max(float(0), pnoise(vec2(P1.x.add(0.5), P1.y.add(t.mul(2.0))), rep))
-    const n3 = max(float(0), pnoise(vec2(P1.x.add(1.0), P1.y), rep))
-    const noise = n1.add(n2).add(n3).mul(0.5).add(0.5)
+    const n1 = snoise(P1)
+    const n2 = max(float(0), snoise(vec2(P1.x.add(0.5), P1.y.add(t.mul(2.0)))))
+    const n3 = max(float(0), snoise(vec2(P1.x.add(1.0), P1.y)))
+    const noise = n1.add(n2).add(n3)
     const edges = float(1).sub(uvBase.y.sub(0.5).mul(2.0).abs())
-    const alpha = noise.mul(edges).mul(0.7)
+    const alpha = min(float(1), max(float(0), float(0.5).add(noise).mul(edges).mul(0.7)))
     return vec4(uColor.rgb, alpha)
   })
 
-  const material = new NodeMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: AdditiveBlending,
-    side: DoubleSide,
-  })
+  const colorNode = colorFn()
+  const material = new NodeMaterial()
   material.name = 'lightRing'
+  material.transparent = true
+  material.depthWrite = false
+  material.blending = AdditiveBlending
+  material.side = DoubleSide
   material.positionNode = positionNode
-  material.colorNode = colorFn()
+  material.colorNode = colorNode
+  material.opacityNode = colorNode.a
   material.uTime = uTime
   material.uColor = uColor
   material.uScaleOcean = uScaleOcean
@@ -93,32 +93,31 @@ export function createLightColumnMaterial(color, heightMapTexture, scaleOcean = 
   const uColor = uniform(color instanceof Color ? color : new Color(color))
   const uTime = uniform(0)
 
-  const rep = vec2(NOISE_PERIOD, NOISE_PERIOD)
-
   const positionNode = createHeightmapPositionNode(heightMapTexture, uScaleOcean)()
 
   const colorFn = Fn(() => {
     const uvBase = uv()
     const t = uTime.mul(SPEED)
     const P1 = vec2(uvBase.x.sub(0.5).mul(2.0).abs().add(t), uvBase.y)
-    const n1 = pnoise(P1, rep)
-    const n2 = max(float(0), pnoise(vec2(P1.x.add(0.5), P1.y.add(t.mul(2.0))), rep))
-    const noise = n1.add(n2).mul(0.5).add(0.5)
+    const n1 = snoise(P1)
+    const n2 = max(float(0), snoise(vec2(P1.x.add(0.5), P1.y.add(t.mul(2.0)))))
+    const noise = n1.add(n2)
     const edges = float(1).sub(uvBase.y)
     const bottom = smoothstep(float(0), float(0.2), uvBase.y)
-    const alpha = noise.mul(edges).mul(0.7).mul(bottom)
+    const alpha = min(float(1), max(float(0), float(0.5).add(noise).mul(edges).mul(0.7).mul(bottom)))
     return vec4(uColor.rgb, alpha)
   })
 
-  const material = new NodeMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: AdditiveBlending,
-    side: DoubleSide,
-  })
+  const colorNode = colorFn()
+  const material = new NodeMaterial()
   material.name = 'lightColumn'
+  material.transparent = true
+  material.depthWrite = false
+  material.blending = AdditiveBlending
+  material.side = DoubleSide
   material.positionNode = positionNode
-  material.colorNode = colorFn()
+  material.colorNode = colorNode
+  material.opacityNode = colorNode.a
   material.uTime = uTime
   material.uColor = uColor
   material.uScaleOcean = uScaleOcean
