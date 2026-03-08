@@ -53,15 +53,15 @@ export function createSailMaterial(mapTexture) {
       .mul(uCoefShadow)
       .add(uAmbientColor.r.mul(2))
     const shaded = vec3(toonShading, toonShading, toonShading)
-    return vec4(tex.rgb.mul(shaded), 1.0)
+    return vec4(tex.rgb.mul(shaded), 0.96)
   })
 
   const material = new NodeMaterial()
+  material.transparent = true
   material.name = 'toon'
   material.map = mapTexture
   material.positionNode = positionFn()
   material.colorNode = colorFn()
-  material.side = DoubleSide
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow
