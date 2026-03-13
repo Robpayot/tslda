@@ -414,6 +414,8 @@ export default class Ocean extends Object3D {
     OceanHeightMap.uYScale.value = yScale
     OceanHeightMap.uYStrength.value = yStrength
     // Env
+    this.uYScale.value = yScale
+    this.uYStrength.value = yStrength
     this.uColor.value = new Color(color)
     this.uExtColor.value = new Color(color)
     this.uAlphaTex.value = alphaTex
