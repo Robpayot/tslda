@@ -26,6 +26,7 @@ import {
   select,
   normalLocal,
   modelWorldMatrix,
+  depth,
 } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -46,6 +47,7 @@ const GEOMETRY = new PlaneGeometry(1, 1, SEGMENTS_OCEAN, SEGMENTS_OCEAN) // 200,
 
 export default class Ocean extends Object3D {
   #material
+  #shadowMaterial
   #debug
   #debugHeightMapPlane
   #settings = {
@@ -154,6 +156,10 @@ export default class Ocean extends Object3D {
     if (sunShadowMap) {
       this.uShadowCameraP = uniform(sunShadowMap.camera.projectionMatrix)
       this.uShadowCameraV = uniform(sunShadowMap.camera.matrixWorldInverse)
+      const mapW = sunShadowMap.map?.width ?? 512
+      this.uShadowMapTexelSize = uniform(1 / mapW)
+    } else {
+      this.uShadowMapTexelSize = uniform(1 / 512)
     }
 
     const waveDirCoef = 0.02
@@ -215,9 +221,10 @@ export default class Ocean extends Object3D {
 
       // EnvManager.sunShadowMap – commented out
       vNormal.assign(normalLocal)
+      // Match original WebGL ocean/main.vert: use flat position for shadow coord (not wave-deformed pos)
       if (sunShadowMap && this.uShadowCameraP) {
         vShadowCoord.assign(
-          this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelWorldMatrix).mul(vec4(pos, 1.0))
+          this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelWorldMatrix).mul(vec4(positionLocal, 1.0))
         )
       } else {
         vShadowCoord.assign(vec4(0, 0, 0, 1))
@@ -320,16 +327,26 @@ export default class Ocean extends Object3D {
         .add(mix(trailTex.xyz, oceanTex.xyz, float(0.1)).mul(trailTex.a))
         .toVar()
 
-      // Shadow: raw depth in shadow map (vec4(d,d,d,1)), use .r directly
+      // receiveShadow — TSL port of glsl/shadows/receiveShadow.frag (45–67)
+      // Shadow map stores raw depth in R (vec4(depth,depth,depth,1))
       if (sunShadowMap && Settings.castShadows) {
         const shadowCoord = vShadowCoord.xyz.div(vShadowCoord.w).mul(0.5).add(0.5)
-        // Fix Y inversion (WebGL texture convention)
-        const shadowCoordUV = vec2(shadowCoord.x, float(1).sub(shadowCoord.y))
-        const shadowMapSample = texture(depthMapTex, shadowCoordUV)
-        const depthFromMap = shadowMapSample.r
-
-        const bias = float(0.005)
-        const shadowFactor = step(shadowCoord.z.sub(bias), depthFromMap)
+        const depthShadowCoord = shadowCoord.z
+        const baseUv = vec2(shadowCoord.x, float(1).sub(shadowCoord.y))
+        const texelSize = this.uShadowMapTexelSize
+        const bias = float(0.01)
+        const depthBias = depthShadowCoord.sub(bias)
+        // Shadow map has boat only (no ocean): clear=0 elsewhere. depthFromMap<0.001 → lit (boat shape only)
+        const o = texelSize
+        const d0 = texture(depthMapTex, baseUv).r
+        const d1 = texture(depthMapTex, baseUv.add(vec2(o, 0))).r
+        const d2 = texture(depthMapTex, baseUv.add(vec2(0, o))).r
+        const d3 = texture(depthMapTex, baseUv.add(vec2(o, o))).r
+        const s0 = select(d0.lessThan(0.001), float(1), step(depthBias, d0))
+        const s1 = select(d1.lessThan(0.001), float(1), step(depthBias, d1))
+        const s2 = select(d2.lessThan(0.001), float(1), step(depthBias, d2))
+        const s3 = select(d3.lessThan(0.001), float(1), step(depthBias, d3))
+        const shadowFactor = s0.add(s1).add(s2).add(s3).div(4)
         const inFrustum = shadowCoord.x
           .greaterThanEqual(0)
           .and(shadowCoord.x.lessThanEqual(1))
@@ -337,17 +354,15 @@ export default class Ocean extends Object3D {
           .and(shadowCoord.y.lessThanEqual(1))
           .and(shadowCoord.z.lessThanEqual(1))
         const shadowFactorClamped = select(inFrustum, shadowFactor, float(1))
-        const inShadow = shadowFactorClamped.lessThan(0.5)
-        const shadowDarkness = 0.5
-        const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactorClamped)
+        const shadowDarkness = float(0.5)
+        const receivedShadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactorClamped)
 
-        // Debug: display raw shadow map on ocean (toggle via uShowShadowMapOnOcean)
         const showDebug = this.uShowShadowMapOnOcean.greaterThan(0.5)
         const isolateBoat = this.uIsolateBoatShadow.greaterThan(0.5)
-        // When isolate: only show shadow map where boat casts shadow; elsewhere show ocean
-        const debugColor = select(isolateBoat, select(inShadow, shadowMapSample.rgb, finalColor), shadowMapSample.rgb)
-        // When isolate+debug: darken based on gray; gray < 0.5 has no impact (only in shadowed areas)
-        const gray = shadowMapSample.r
+        const inShadow = shadowFactorClamped.lessThan(0.5)
+        const depthMapSample = texture(depthMapTex, baseUv)
+        const debugColor = select(isolateBoat, select(inShadow, depthMapSample.rgb, finalColor), depthMapSample.rgb)
+        const gray = depthMapSample.r
         const darkenFactor = smoothstep(float(0.5), float(1.0), gray)
         const darkenedInShadow = debugColor.mul(float(1).sub(darkenFactor.mul(shadowDarkness)))
         const debugOutput = select(
@@ -355,7 +370,7 @@ export default class Ocean extends Object3D {
           select(inShadow, darkenedInShadow, debugColor),
           debugColor
         )
-        finalColor.assign(select(showDebug, debugOutput, finalColor.mul(shadow)))
+        finalColor.assign(select(showDebug, debugOutput, finalColor.mul(receivedShadow)))
       }
 
       const fogFactor = float(1).sub(exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate()))
@@ -367,10 +382,56 @@ export default class Ocean extends Object3D {
     this.#material = new NodeMaterial()
     this.#material.positionNode = positionFn()
     this.#material.colorNode = colorFn()
+
+    this._createShadowMaterial(waveDirCoef)
+  }
+
+  /**
+   * Shadow material with same wave deformation as main ocean.
+   * Without this, the shadow map stores flat ocean depth while receiving uses waves → depth mismatch → big dark square.
+   */
+  _createShadowMaterial(waveDirCoef) {
+    const uTimeWave = this.uTimeWave
+    const uYScale = this.uYScale
+    const uYStrength = this.uYStrength
+    const uDirTex = this.uDirTex
+
+    const shadowPositionFn = Fn(() => {
+      const pos = positionLocal.toVar()
+      const calculateSurface = (x, z) => {
+        const y1 = sin(x.mul(1.0).div(uYScale).add(uTimeWave.mul(1.0)))
+          .add(sin(x.mul(2.3).div(uYScale).add(uTimeWave.mul(1.5))))
+          .add(sin(x.mul(3.3).div(uYScale).add(uTimeWave.mul(0.4))))
+        const y2 = sin(z.mul(0.2).div(uYScale).add(uTimeWave.mul(1.8)))
+          .add(sin(z.mul(1.8).div(uYScale).add(uTimeWave.mul(1.8))))
+          .add(sin(z.mul(2.8).div(uYScale).add(uTimeWave.mul(0.8))))
+        return y1.div(3.0).add(y2.div(3.0))
+      }
+      const dirWave = uDirTex.mul(float(waveDirCoef))
+      const surf = uYStrength.mul(
+        calculateSurface(pos.x.add(dirWave.x), pos.y.add(dirWave.y)).sub(
+          calculateSurface(float(0).add(dirWave.x), float(0).add(dirWave.y))
+        )
+      )
+      pos.z.addAssign(surf)
+      const circle = distance(vec2(pos.x, pos.y), vec2(0, 0))
+      pos.z.mulAssign(float(0.5).sub(circle))
+      return pos
+    })
+
+    this.#shadowMaterial = new NodeMaterial()
+    this.#shadowMaterial.positionNode = shadowPositionFn()
+    this.#shadowMaterial.colorNode = vec4(depth, depth, depth, 1.)
+    this.#shadowMaterial.depthWrite = true
+    this.#shadowMaterial.depthTest = true
   }
 
   get mainMaterial() {
     return this.#material
+  }
+
+  get shadowMaterial() {
+    return this.#shadowMaterial
   }
 
   _createMesh() {

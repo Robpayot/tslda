@@ -223,7 +223,6 @@ export default class WebGLApp {
 
     // render Target for Shadow Map
     if (view.components?.ocean?.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
-      view.components.ocean.mesh.material = EnvManager.shadowMaterial
       for (let i = 0; i < view.meshShadows?.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].shadowMaterial
       }
@@ -247,11 +246,9 @@ export default class WebGLApp {
       }
 
       // Use dedicated shadow scene (like OceanHeightMap) - avoids main scene background, debug plane, etc.
-      const oceanMesh = view.components.ocean.mesh
       const shadowScene = EnvManager.shadowScene
       const shadowCam = EnvManager.sunShadowMap.camera
 
-      const oceanParent = oceanMesh.parent
       const shadowParents = view.meshShadows.map((m) => m.parent)
 
       const _pos = new Vector3()
@@ -269,7 +266,8 @@ export default class WebGLApp {
         obj.scale.copy(_scale)
       }
 
-      saveWorldAndAdd(oceanMesh, shadowScene)
+      // Only render boat (and other shadow casters) — NOT the ocean. WebGL did this: shadow map
+      // contains boat depth only; clear (0) elsewhere. When receiving: depthFromMap=0 → lit.
       for (let i = 0; i < view.meshShadows.length; i++) {
         saveWorldAndAdd(view.meshShadows[i], shadowScene)
       }
@@ -293,13 +291,11 @@ export default class WebGLApp {
         obj.matrix.copy(_m4)
         obj.matrix.decompose(obj.position, obj.quaternion, obj.scale)
       }
-      if (oceanParent) restoreToParent(oceanMesh, oceanParent)
       for (let i = 0; i < view.meshShadows.length; i++) {
         if (shadowParents[i]) restoreToParent(view.meshShadows[i], shadowParents[i])
       }
 
-      // // replace with their default materials
-      view.components.ocean.mesh.material = view.components.ocean.mainMaterial
+      // replace with their default materials
       for (let i = 0; i < view.meshShadows.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].mainMaterial
         const u = view.meshShadows[i].material?.uniforms?.uDepthMap
