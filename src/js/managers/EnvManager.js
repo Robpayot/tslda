@@ -117,20 +117,18 @@ class EnvManager {
     this.#sunDir.shadow.map = new WebGLRenderTarget(mapW, mapH, pars)
 
     // TSL shadow depth: outputs fragment depth in RGBA (matches shadowmap.frag)
-    this.#shadowMaterial = new NodeMaterial({
-      positionNode: positionLocal,
-      colorNode: vec4(depth, depth, depth, depth),
-      depthWrite: true,
-      depthTest: true,
-    })
+    this.#shadowMaterial = new NodeMaterial()
+    this.#shadowMaterial.positionNode = positionLocal
+    this.#shadowMaterial.colorNode = vec4(depth, depth, depth, 1.)
+    this.#shadowMaterial.depthWrite = true
+    this.#shadowMaterial.depthTest = true
 
     // SkinnedMesh: engine auto-applies skinning when using positionLocal
-    this.#shadowSkinMaterial = new NodeMaterial({
-      positionNode: positionLocal,
-      colorNode: vec4(depth, depth, depth, depth),
-      depthWrite: true,
-      depthTest: true,
-    })
+    this.#shadowSkinMaterial = new NodeMaterial()
+    this.#shadowSkinMaterial.positionNode = positionLocal
+    this.#shadowSkinMaterial.colorNode = vec4(depth, depth, depth, 1.)
+    this.#shadowSkinMaterial.depthWrite = true
+    this.#shadowSkinMaterial.depthTest = true
 
     scene.add(this.#sunDir.shadow.camera) // add camera for shadowmap
 
@@ -145,6 +143,7 @@ class EnvManager {
     // this.#scene.add(this.#ambientLight)
     this.#sunShadowMap = this._createSunShadowMap(scene)
     this._createDebugFolder()
+    console.log( this.#sunShadowMap)
 
     this.#scene.background = new Color(this.#settings.sky)
   }

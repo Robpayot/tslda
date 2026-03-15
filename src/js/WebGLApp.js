@@ -223,7 +223,7 @@ export default class WebGLApp {
 
     // render Target for Shadow Map
     if (view.components?.ocean?.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
-      // view.components.ocean.mesh.material = EnvManager.shadowMaterial
+      view.components.ocean.mesh.material = EnvManager.shadowMaterial
       for (let i = 0; i < view.meshShadows?.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].shadowMaterial
       }
@@ -246,23 +246,23 @@ export default class WebGLApp {
         }
       }
 
-      this.#renderer.instance.setRenderTarget(EnvManager.sunShadowMap.map)
-      this.#renderer.instance.clear()
-      this.#renderer.render(view.scene, EnvManager.sunShadowMap.camera)
-      this.#renderer.instance.setRenderTarget(null)
+      // this.#renderer.instance.setRenderTarget(EnvManager.sunShadowMap.map)
+      // this.#renderer.instance.clear()
+      // this.#renderer.render(view.scene, EnvManager.sunShadowMap.camera)
+      // this.#renderer.instance.setRenderTarget(null)
 
-      // replace with their default materials
-      view.components.ocean.mesh.material = view.components.ocean.mainMaterial
-      for (let i = 0; i < view.meshShadows.length; i++) {
-        view.meshShadows[i].material = view.meshShadows[i].mainMaterial
-        const u = view.meshShadows[i].material?.uniforms?.uDepthMap
-        if (u) u.value = EnvManager.sunShadowMap.map.texture
-      }
+      // // replace with their default materials
+      // view.components.ocean.mesh.material = view.components.ocean.mainMaterial
+      // for (let i = 0; i < view.meshShadows.length; i++) {
+      //   view.meshShadows[i].material = view.meshShadows[i].mainMaterial
+      //   const u = view.meshShadows[i].material?.uniforms?.uDepthMap
+      //   if (u) u.value = EnvManager.sunShadowMap.map.texture
+      // }
 
-      for (let i = 0; i < view.meshReceiveShadows.length; i++) {
-        const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
-        if (u) u.value = EnvManager.sunShadowMap.map.texture
-      }
+      // for (let i = 0; i < view.meshReceiveShadows.length; i++) {
+      //   const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
+      //   if (u) u.value = EnvManager.sunShadowMap.map.texture
+      // }
       // reshow meshes taht don't need cast shadows
 
       if (ModeManager.state === MODE.GAME || ModeManager.state === MODE.GAME_STARTED) {
@@ -283,7 +283,7 @@ export default class WebGLApp {
     }
 
     if (view && this.#isViewRenderingEnabled) {
-      this.#renderer.render(view.scene, view.camera)
+      this.#renderer.render(view.scene, EnvManager.sunShadowMap.camera)
       if (this.depthViewer) {
         this.depthViewer.enabled = true
         this.depthViewer.render(this.#renderer.instance)
