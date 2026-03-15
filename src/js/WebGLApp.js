@@ -1,7 +1,7 @@
 // Vendor
 import { gsap } from 'gsap'
 import Stats from 'stats-js'
-import { Clock } from 'three'
+import { Clock, Matrix4, Quaternion, Vector3 } from 'three'
 // import { GPUStatsPanel } from 'three/addons/utils/GPUStatsPanel'
 
 // Modules
@@ -246,23 +246,70 @@ export default class WebGLApp {
         }
       }
 
-      // this.#renderer.instance.setRenderTarget(EnvManager.sunShadowMap.map)
-      // this.#renderer.instance.clear()
-      // this.#renderer.render(view.scene, EnvManager.sunShadowMap.camera)
-      // this.#renderer.instance.setRenderTarget(null)
+      // Use dedicated shadow scene (like OceanHeightMap) - avoids main scene background, debug plane, etc.
+      const oceanMesh = view.components.ocean.mesh
+      const shadowScene = EnvManager.shadowScene
+      const shadowCam = EnvManager.sunShadowMap.camera
+
+      const oceanParent = oceanMesh.parent
+      const shadowParents = view.meshShadows.map((m) => m.parent)
+
+      const _pos = new Vector3()
+      const _quat = new Quaternion()
+      const _scale = new Vector3()
+
+      const saveWorldAndAdd = (obj, parent) => {
+        obj.updateWorldMatrix(true, true)
+        obj.getWorldPosition(_pos)
+        obj.getWorldQuaternion(_quat)
+        obj.getWorldScale(_scale)
+        parent.add(obj)
+        obj.position.copy(_pos)
+        obj.quaternion.copy(_quat)
+        obj.scale.copy(_scale)
+      }
+
+      saveWorldAndAdd(oceanMesh, shadowScene)
+      for (let i = 0; i < view.meshShadows.length; i++) {
+        saveWorldAndAdd(view.meshShadows[i], shadowScene)
+      }
+
+      this.#renderer.instance.setRenderTarget(EnvManager.sunShadowMap.map)
+      this.#renderer.instance.setClearColor(0x000000, 1)
+      this.#renderer.instance.clear()
+      this.#renderer.render(shadowScene, shadowCam)
+      this.#renderer.instance.setClearColor(0xffffff, 1)
+      this.#renderer.instance.setRenderTarget(null)
+
+      const _m4 = new Matrix4()
+      const _inv = new Matrix4()
+      const restoreToParent = (obj, parent) => {
+        if (!parent) return
+        parent.updateWorldMatrix(true, true)
+        obj.updateWorldMatrix(true, true)
+        _inv.copy(parent.matrixWorld).invert()
+        _m4.copy(_inv).multiply(obj.matrixWorld)
+        parent.add(obj)
+        obj.matrix.copy(_m4)
+        obj.matrix.decompose(obj.position, obj.quaternion, obj.scale)
+      }
+      if (oceanParent) restoreToParent(oceanMesh, oceanParent)
+      for (let i = 0; i < view.meshShadows.length; i++) {
+        if (shadowParents[i]) restoreToParent(view.meshShadows[i], shadowParents[i])
+      }
 
       // // replace with their default materials
-      // view.components.ocean.mesh.material = view.components.ocean.mainMaterial
-      // for (let i = 0; i < view.meshShadows.length; i++) {
-      //   view.meshShadows[i].material = view.meshShadows[i].mainMaterial
-      //   const u = view.meshShadows[i].material?.uniforms?.uDepthMap
-      //   if (u) u.value = EnvManager.sunShadowMap.map.texture
-      // }
+      view.components.ocean.mesh.material = view.components.ocean.mainMaterial
+      for (let i = 0; i < view.meshShadows.length; i++) {
+        view.meshShadows[i].material = view.meshShadows[i].mainMaterial
+        const u = view.meshShadows[i].material?.uniforms?.uDepthMap
+        if (u) u.value = EnvManager.sunShadowMap.map.texture
+      }
 
-      // for (let i = 0; i < view.meshReceiveShadows.length; i++) {
-      //   const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
-      //   if (u) u.value = EnvManager.sunShadowMap.map.texture
-      // }
+      for (let i = 0; i < view.meshReceiveShadows.length; i++) {
+        const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
+        if (u) u.value = EnvManager.sunShadowMap.map.texture
+      }
       // reshow meshes taht don't need cast shadows
 
       if (ModeManager.state === MODE.GAME || ModeManager.state === MODE.GAME_STARTED) {
@@ -283,7 +330,7 @@ export default class WebGLApp {
     }
 
     if (view && this.#isViewRenderingEnabled) {
-      this.#renderer.render(view.scene, EnvManager.sunShadowMap.camera)
+      this.#renderer.render(view.scene, view.camera)
       if (this.depthViewer) {
         this.depthViewer.enabled = true
         this.depthViewer.render(this.#renderer.instance)

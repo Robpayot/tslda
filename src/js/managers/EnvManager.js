@@ -3,9 +3,11 @@ import {
   Color,
   DepthTexture,
   DirectionalLight,
+  HalfFloatType,
   NearestFilter,
   OrthographicCamera,
   RGBAFormat,
+  Scene,
   Vector3,
   WebGLRenderTarget,
 } from 'three'
@@ -44,6 +46,7 @@ class EnvManager {
   progress = 0
   #toonMaterials = []
   debugShadowMap = false
+  #shadowScene = null
   #fog
   constructor() {
     this.compassElBkg = document.body.querySelector('[data-compass-bkg]')
@@ -75,6 +78,10 @@ class EnvManager {
 
   get shadowSkinMaterial() {
     return this.#shadowSkinMaterial
+  }
+
+  get shadowScene() {
+    return this.#shadowScene
   }
 
   _createSunLight() {
@@ -111,6 +118,7 @@ class EnvManager {
       minFilter: NearestFilter,
       magFilter: NearestFilter,
       format: RGBAFormat,
+      type: HalfFloatType,
       depthTexture: new DepthTexture(mapW, mapH),
     }
 
@@ -142,8 +150,9 @@ class EnvManager {
 
     // this.#scene.add(this.#ambientLight)
     this.#sunShadowMap = this._createSunShadowMap(scene)
+    this.#shadowScene = new Scene()
+    this.#shadowScene.background = null
     this._createDebugFolder()
-    console.log( this.#sunShadowMap)
 
     this.#scene.background = new Color(this.#settings.sky)
   }
