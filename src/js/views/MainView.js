@@ -69,8 +69,7 @@ export default class MainView {
     this.#scene.traverse((object) => {
       if (object?.castCustomShadow === true) {
         object.mainMaterial = object.material
-        object.shadowMaterial =
-          object.type === 'SkinnedMesh' ? EnvManager.shadowSkinMaterial : EnvManager.shadowMaterial
+        object.shadowMaterial = EnvManager.shadowMaterial
         this.#meshShadows.push(object)
       }
       if (object?.receiveCustomShadow === true) {

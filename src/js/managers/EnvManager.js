@@ -12,7 +12,7 @@ import {
   WebGLRenderTarget,
 } from 'three'
 import { NodeMaterial } from 'three/webgpu'
-import { depth, positionLocal, vec4 } from 'three/tsl'
+import { depth, positionLocal, positionWorld, vec4, Fn, If, Discard } from 'three/tsl'
 // Modules
 import Debugger from '@/js/managers/Debugger'
 import DATA_ENV from '../data/env.json'
@@ -124,19 +124,16 @@ class EnvManager {
 
     this.#sunDir.shadow.map = new WebGLRenderTarget(mapW, mapH, pars)
 
-    // TSL shadow depth: outputs fragment depth in RGBA (matches shadowmap.frag)
+    // TSL shadow depth: outputs fragment depth in RGBA. Discard parts below y=0 (under water).
+    const shadowColorNode = Fn(() => {
+      If(positionWorld.y.lessThan(0), () => Discard())
+      return vec4(depth, depth, depth, 1.)
+    })()
     this.#shadowMaterial = new NodeMaterial()
     this.#shadowMaterial.positionNode = positionLocal
-    this.#shadowMaterial.colorNode = vec4(depth, depth, depth, 1.)
+    this.#shadowMaterial.colorNode = shadowColorNode
     this.#shadowMaterial.depthWrite = true
     this.#shadowMaterial.depthTest = true
-
-    // SkinnedMesh: engine auto-applies skinning when using positionLocal
-    this.#shadowSkinMaterial = new NodeMaterial()
-    this.#shadowSkinMaterial.positionNode = positionLocal
-    this.#shadowSkinMaterial.colorNode = vec4(depth, depth, depth, 1.)
-    this.#shadowSkinMaterial.depthWrite = true
-    this.#shadowSkinMaterial.depthTest = true
 
     scene.add(this.#sunDir.shadow.camera) // add camera for shadowmap
 

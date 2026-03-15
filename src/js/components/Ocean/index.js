@@ -353,7 +353,13 @@ export default class Ocean extends Object3D {
           .and(shadowCoord.y.greaterThanEqual(0))
           .and(shadowCoord.y.lessThanEqual(1))
           .and(shadowCoord.z.lessThanEqual(1))
-        const shadowFactorClamped = select(inFrustum, shadowFactor, float(1))
+        // Discard shadow when depth too low (wrong side, near light) or too high (far plane) — shadow only behind boat
+        const depthInRange = depthShadowCoord.greaterThan(0.02).and(depthShadowCoord.lessThan(0.98))
+        const shadowFactorClamped = select(
+          inFrustum.and(depthInRange),
+          shadowFactor,
+          float(1)
+        )
         const shadowDarkness = float(0.5)
         const receivedShadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactorClamped)
 

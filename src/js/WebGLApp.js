@@ -223,6 +223,14 @@ export default class WebGLApp {
 
     // render Target for Shadow Map
     if (view.components?.ocean?.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
+      // Sync sunDir and shadow camera before render (avoids flicker when Env debugger changes sunDir)
+      const sunDir = EnvManager.settings.sunDir
+      EnvManager.sunDir.position.set(sunDir.x, sunDir.y, sunDir.z)
+      const shadowCam = EnvManager.sunShadowMap.camera
+      shadowCam.position.copy(EnvManager.sunDir.position)
+      shadowCam.lookAt(0, 0, 0)
+      shadowCam.updateMatrixWorld(true)
+
       for (let i = 0; i < view.meshShadows?.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].shadowMaterial
       }
@@ -247,7 +255,6 @@ export default class WebGLApp {
 
       // Use dedicated shadow scene (like OceanHeightMap) - avoids main scene background, debug plane, etc.
       const shadowScene = EnvManager.shadowScene
-      const shadowCam = EnvManager.sunShadowMap.camera
 
       const shadowParents = view.meshShadows.map((m) => m.parent)
 
