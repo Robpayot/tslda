@@ -43,6 +43,52 @@ function unpackRGBAToDepth(color) {
   return dot(color, BIT_SHIFT)
 }
 
+/** Texel size for PCF; fallback if shadow map not ready */
+const SHADOW_MAP_TEXEL_SIZE = 1 / 512
+
+/**
+ * Shared receive-shadow node (same logic as Ocean): boat-only shadow map, raw depth in .r,
+ * clear<0.001→lit, depthInRange 0.02–0.98, Y flip, 2×2 PCF.
+ * @param {{ depthMapTex, uShadowCameraP, uShadowCameraV, uShadowMapTexelSize? }} params
+ * @returns {import('three/tsl').ShaderNode<float>} receivedShadow (1=lit, 0.5=shadow)
+ */
+export function createReceiveShadowNode(params) {
+  const {
+    depthMapTex,
+    uShadowCameraP,
+    uShadowCameraV,
+    uShadowMapTexelSize = float(SHADOW_MAP_TEXEL_SIZE),
+  } = params
+  return Fn(() => {
+    const shadowCoord4 = uShadowCameraP.mul(uShadowCameraV).mul(vec4(positionWorld, 1.0))
+    const shadowCoord = shadowCoord4.xyz.div(shadowCoord4.w).mul(0.5).add(0.5)
+    const depthShadowCoord = shadowCoord.z
+    const baseUv = vec2(shadowCoord.x, float(1).sub(shadowCoord.y))
+    const bias = float(0.01)
+    const depthBias = depthShadowCoord.sub(bias)
+    const o = uShadowMapTexelSize
+    const d0 = texture(depthMapTex, baseUv).r
+    const d1 = texture(depthMapTex, baseUv.add(vec2(o, 0))).r
+    const d2 = texture(depthMapTex, baseUv.add(vec2(0, o))).r
+    const d3 = texture(depthMapTex, baseUv.add(vec2(o, o))).r
+    const s0 = select(d0.lessThan(0.001), float(1), step(depthBias, d0))
+    const s1 = select(d1.lessThan(0.001), float(1), step(depthBias, d1))
+    const s2 = select(d2.lessThan(0.001), float(1), step(depthBias, d2))
+    const s3 = select(d3.lessThan(0.001), float(1), step(depthBias, d3))
+    const shadowFactor = s0.add(s1).add(s2).add(s3).div(4)
+    const inFrustum = shadowCoord.x
+      .greaterThanEqual(0)
+      .and(shadowCoord.x.lessThanEqual(1))
+      .and(shadowCoord.y.greaterThanEqual(0))
+      .and(shadowCoord.y.lessThanEqual(1))
+      .and(shadowCoord.z.lessThanEqual(1))
+    const depthInRange = depthShadowCoord.greaterThan(0.02).and(depthShadowCoord.lessThan(0.98))
+    const shadowFactorClamped = select(inFrustum.and(depthInRange), shadowFactor, float(1))
+    const shadowDarkness = float(0.5)
+    return mix(float(1).sub(shadowDarkness), float(1), shadowFactorClamped)
+  })()
+}
+
 /**
  * Creates a TSL toon material with shadow receiving.
  * Shared by Boat and Link (same as former receiveShadow.vert + receiveShadow.frag).
