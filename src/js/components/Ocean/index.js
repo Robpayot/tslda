@@ -26,7 +26,6 @@ import {
   select,
   normalLocal,
   modelWorldMatrix,
-  dot,
 } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -56,6 +55,8 @@ export default class Ocean extends Object3D {
     trailTurn: 0,
     fogColor: '#6abbe9',
     fogDensity: 0.0009,
+    showShadowMapOnOcean: false,
+    isolateBoatShadow: false,
   }
   #scale = SCALE_OCEAN
   #mesh
@@ -143,6 +144,8 @@ export default class Ocean extends Object3D {
     this.uTrailJumpOpacity = uniform(1)
     this.uFogColor = uniform(new Color(this.#settings.fogColor))
     this.uFogDensity = uniform(this.#settings.fogDensity)
+    this.uShowShadowMapOnOcean = uniform(this.#settings.showShadowMapOnOcean ? 1 : 0)
+    this.uIsolateBoatShadow = uniform(this.#settings.isolateBoatShadow ? 1 : 0)
     // TSL requires a real THREE.Texture; use depthMapTex directly, not uniform()
     const depthMapTex =
       Settings.castShadows && sunShadowMap?.map?.texture
@@ -214,7 +217,7 @@ export default class Ocean extends Object3D {
       vNormal.assign(normalLocal)
       if (sunShadowMap && this.uShadowCameraP) {
         vShadowCoord.assign(
-          this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelWorldMatrix).mul(vec4(positionLocal, 1.0))
+          this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelWorldMatrix).mul(vec4(pos, 1.0))
         )
       } else {
         vShadowCoord.assign(vec4(0, 0, 0, 1))
@@ -317,31 +320,42 @@ export default class Ocean extends Object3D {
         .add(mix(trailTex.xyz, oceanTex.xyz, float(0.1)).mul(trailTex.a))
         .toVar()
 
-      // EnvManager.sunShadowMap – commented out
+      // Shadow: raw depth in shadow map (vec4(d,d,d,1)), use .r directly
       if (sunShadowMap && Settings.castShadows) {
         const shadowCoord = vShadowCoord.xyz.div(vShadowCoord.w).mul(0.5).add(0.5)
-        const depthMapUv = shadowCoord.xy
-        const depthVec = texture(depthMapTex, depthMapUv)
-        const unpackScale = vec4(
-          1.0 / 256.0,
-          1.0 / 65025.0,
-          1.0 / 65025.0 / 256.0,
-          1.0 / 65025.0 / 65025.0
-        )
-        const depthFromMap = dot(depthVec, unpackScale)
-        const depthShadowCoord = shadowCoord.z
-        const bias = 0.01
-        let shadowFactor = step(depthShadowCoord.sub(bias), depthFromMap)
+        // Fix Y inversion (WebGL texture convention)
+        const shadowCoordUV = vec2(shadowCoord.x, float(1).sub(shadowCoord.y))
+        const shadowMapSample = texture(depthMapTex, shadowCoordUV)
+        const depthFromMap = shadowMapSample.r
+
+        const bias = float(0.005)
+        const shadowFactor = step(shadowCoord.z.sub(bias), depthFromMap)
         const inFrustum = shadowCoord.x
           .greaterThanEqual(0)
           .and(shadowCoord.x.lessThanEqual(1))
           .and(shadowCoord.y.greaterThanEqual(0))
           .and(shadowCoord.y.lessThanEqual(1))
-        const inZ = shadowCoord.z.lessThanEqual(1)
-        shadowFactor = select(inFrustum.and(inZ), shadowFactor, float(1))
+          .and(shadowCoord.z.lessThanEqual(1))
+        const shadowFactorClamped = select(inFrustum, shadowFactor, float(1))
+        const inShadow = shadowFactorClamped.lessThan(0.5)
         const shadowDarkness = 0.5
-        const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactor)
-        finalColor.assign(finalColor.mul(shadow))
+        const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactorClamped)
+
+        // Debug: display raw shadow map on ocean (toggle via uShowShadowMapOnOcean)
+        const showDebug = this.uShowShadowMapOnOcean.greaterThan(0.5)
+        const isolateBoat = this.uIsolateBoatShadow.greaterThan(0.5)
+        // When isolate: only show shadow map where boat casts shadow; elsewhere show ocean
+        const debugColor = select(isolateBoat, select(inShadow, shadowMapSample.rgb, finalColor), shadowMapSample.rgb)
+        // When isolate+debug: darken based on gray; gray < 0.5 has no impact (only in shadowed areas)
+        const gray = shadowMapSample.r
+        const darkenFactor = smoothstep(float(0.5), float(1.0), gray)
+        const darkenedInShadow = debugColor.mul(float(1).sub(darkenFactor.mul(shadowDarkness)))
+        const debugOutput = select(
+          isolateBoat,
+          select(inShadow, darkenedInShadow, debugColor),
+          debugColor
+        )
+        finalColor.assign(select(showDebug, debugOutput, finalColor.mul(shadow)))
       }
 
       const fogFactor = float(1).sub(exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate()))
@@ -430,6 +444,8 @@ export default class Ocean extends Object3D {
     this.uFogDensity.value = fogDensity
     this.uExtFogColor.value = new Color(fogColor)
     this.uExtFogDensity.value = fogDensity
+    this.uShowShadowMapOnOcean.value = this.#settings.showShadowMapOnOcean ? 1 : 0
+    this.uIsolateBoatShadow.value = this.#settings.isolateBoatShadow ? 1 : 0
 
     // texture
     this.uTimeWave.value += (delta / 16) * speedWave
@@ -514,6 +530,16 @@ export default class Ocean extends Object3D {
 
     debug.addInput(this.#settings, 'fogDensity', { step: 0.00001 }).on('change', settingsChangedHandler)
     debug.addInput(this.#settings, 'fogColor').on('change', settingsChangedHandler)
+    debug
+      .addInput(this.#settings, 'showShadowMapOnOcean', { label: 'Show shadow map on ocean' })
+      .on('change', () => {
+        this.uShowShadowMapOnOcean.value = this.#settings.showShadowMapOnOcean ? 1 : 0
+      })
+    debug
+      .addInput(this.#settings, 'isolateBoatShadow', { label: 'Isolate boat shadow only' })
+      .on('change', () => {
+        this.uIsolateBoatShadow.value = this.#settings.isolateBoatShadow ? 1 : 0
+      })
 
     const btn = debug.addButton({
       title: 'Copy settings',
