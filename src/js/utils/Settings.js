@@ -56,7 +56,7 @@ class Settings {
           this.dpr = getDPR(1)
         }
         this.textureSize = 1024
-        this.castShadows = false
+        this.castShadows = true
         this.antialias = true
         this.heightMap = true
         break
