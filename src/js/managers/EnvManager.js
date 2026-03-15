@@ -1,18 +1,18 @@
 import {
   AmbientLight,
   Color,
+  DepthTexture,
   DirectionalLight,
   NearestFilter,
   OrthographicCamera,
   RGBAFormat,
-  ShaderMaterial,
   Vector3,
   WebGLRenderTarget,
 } from 'three'
+import { NodeMaterial } from 'three/webgpu'
+import { depth, positionLocal, vec4 } from 'three/tsl'
 // Modules
 import Debugger from '@/js/managers/Debugger'
-import vertexShadowmapShader from '@glsl/shadows/shadowmap.vert'
-import fragmentShadowmapShader from '@glsl/shadows/shadowmap.frag'
 import DATA_ENV from '../data/env.json'
 import { MODE } from '../utils/constants'
 import { hexToRgb } from '../utils/three'
@@ -43,6 +43,7 @@ class EnvManager {
   #settingsOcean = { ...DATA_ENV.explore[this.#index].ocean }
   progress = 0
   #toonMaterials = []
+  debugShadowMap = false
   #fog
   constructor() {
     this.compassElBkg = document.body.querySelector('[data-compass-bkg]')
@@ -104,25 +105,31 @@ class EnvManager {
     this.#sunDir.shadow.mapSize.x = Settings.textureSize / 2
     this.#sunDir.shadow.mapSize.y = Settings.textureSize / 2
 
+    const mapW = this.#sunDir.shadow.mapSize.x
+    const mapH = this.#sunDir.shadow.mapSize.y
     const pars = {
       minFilter: NearestFilter,
       magFilter: NearestFilter,
       format: RGBAFormat,
+      depthTexture: new DepthTexture(mapW, mapH),
     }
 
-    this.#sunDir.shadow.map = new WebGLRenderTarget(this.#sunDir.shadow.mapSize.x, this.#sunDir.shadow.mapSize.y, pars)
+    this.#sunDir.shadow.map = new WebGLRenderTarget(mapW, mapH, pars)
 
-    this.#shadowMaterial = new ShaderMaterial({
-      vertexShader: vertexShadowmapShader,
-      fragmentShader: fragmentShadowmapShader,
+    // TSL shadow depth: outputs fragment depth in RGBA (matches shadowmap.frag)
+    this.#shadowMaterial = new NodeMaterial({
+      positionNode: positionLocal,
+      colorNode: vec4(depth, depth, depth, depth),
+      depthWrite: true,
+      depthTest: true,
     })
 
-    this.#shadowSkinMaterial = new ShaderMaterial({
-      vertexShader: vertexShadowmapShader,
-      fragmentShader: fragmentShadowmapShader,
-      defines: {
-        USE_BONES: true,
-      },
+    // SkinnedMesh: engine auto-applies skinning when using positionLocal
+    this.#shadowSkinMaterial = new NodeMaterial({
+      positionNode: positionLocal,
+      colorNode: vec4(depth, depth, depth, depth),
+      depthWrite: true,
+      depthTest: true,
     })
 
     scene.add(this.#sunDir.shadow.camera) // add camera for shadowmap
@@ -411,6 +418,7 @@ class EnvManager {
 
     const debugFolder = Debugger.addFolder({ title: `Env`, expanded: false })
 
+    debugFolder.addInput(this, 'debugShadowMap', { label: 'Show shadow map' })
     debugFolder.addInput(this.#settings, 'sunDir').on('change', settingsChangedHandler)
     debugFolder.addInput(this.#settings, 'ambientLight').on('change', settingsChangedHandler)
     debugFolder.addInput(this.#settings, 'coefShadow').on('change', settingsChangedHandler)

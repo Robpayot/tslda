@@ -24,6 +24,9 @@ import {
   pow,
   texture,
   select,
+  normalLocal,
+  modelWorldMatrix,
+  dot,
 } from 'three/tsl'
 import LoaderManager from '@/js/managers/LoaderManager'
 import ControllerManager from '@/js/managers/ControllerManager'
@@ -118,7 +121,7 @@ export default class Ocean extends Object3D {
     trailMapTexture.wrapS = trailMapTexture.wrapT = RepeatWrapping
 
     // EnvManager.sunShadowMap – commented out for now
-    // const sunShadowMap = EnvManager.sunShadowMap
+    const sunShadowMap = EnvManager.sunShadowMap
 
     // Uniforms (stored on instance for update() and debug)
     this.uMap = uniform(mapTexture)
@@ -140,12 +143,15 @@ export default class Ocean extends Object3D {
     this.uTrailJumpOpacity = uniform(1)
     this.uFogColor = uniform(new Color(this.#settings.fogColor))
     this.uFogDensity = uniform(this.#settings.fogDensity)
-    // EnvManager.sunShadowMap – commented out
-    // if (sunShadowMap) {
-    //   this.uDepthMap = uniform(sunShadowMap.map.texture)
-    //   this.uShadowCameraP = uniform(sunShadowMap.camera.projectionMatrix)
-    //   this.uShadowCameraV = uniform(sunShadowMap.camera.matrixWorldInverse)
-    // }
+    // TSL requires a real THREE.Texture; use depthMapTex directly, not uniform()
+    const depthMapTex =
+      Settings.castShadows && sunShadowMap?.map?.texture
+        ? sunShadowMap.map.texture
+        : LoaderManager.defaultTexture
+    if (sunShadowMap) {
+      this.uShadowCameraP = uniform(sunShadowMap.camera.projectionMatrix)
+      this.uShadowCameraV = uniform(sunShadowMap.camera.matrixWorldInverse)
+    }
 
     const waveDirCoef = 0.02
     const repeatTrail = 190.52
@@ -159,8 +165,8 @@ export default class Ocean extends Object3D {
     const vUvTrail = varying(vec2(0, 0), 'vUvTrail')
     const vRepeatTrail = varying(float(0), 'vRepeatTrail')
     // EnvManager.sunShadowMap – commented out
-    // const vNormal = varying(vec3(0, 0, 0), 'vNormal')
-    // const vShadowCoord = varying(vec4(0, 0, 0, 0), 'vShadowCoord')
+    const vNormal = varying(vec3(0, 0, 0), 'vNormal')
+    const vShadowCoord = varying(vec4(0, 0, 0, 0), 'vShadowCoord')
 
     const positionFn = Fn(() => {
       const pos = positionLocal.toVar()
@@ -205,14 +211,14 @@ export default class Ocean extends Object3D {
       vFogDepth.assign(mvPosition.z.negate())
 
       // EnvManager.sunShadowMap – commented out
-      // vNormal.assign(normalLocal)
-      // if (sunShadowMap && this.uShadowCameraP) {
-      //   vShadowCoord.assign(
-      //     this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelMatrix).mul(vec4(positionLocal, 1.0))
-      //   )
-      // } else {
-      //   vShadowCoord.assign(vec4(0, 0, 0, 1))
-      // }
+      vNormal.assign(normalLocal)
+      if (sunShadowMap && this.uShadowCameraP) {
+        vShadowCoord.assign(
+          this.uShadowCameraP.mul(this.uShadowCameraV).mul(modelWorldMatrix).mul(vec4(positionLocal, 1.0))
+        )
+      } else {
+        vShadowCoord.assign(vec4(0, 0, 0, 1))
+      }
 
       return pos
     })
@@ -312,31 +318,31 @@ export default class Ocean extends Object3D {
         .toVar()
 
       // EnvManager.sunShadowMap – commented out
-      // if (sunShadowMap && this.uDepthMap && Settings.castShadows) {
-      //   const shadowCoord = vShadowCoord.xyz.div(vShadowCoord.w).mul(0.5).add(0.5)
-      //   const depthMapUv = shadowCoord.xy
-      //   const depthVec = texture(this.uDepthMap, depthMapUv)
-      //   const unpackScale = vec4(
-      //     1.0 / 256.0,
-      //     1.0 / 65025.0,
-      //     1.0 / 65025.0 / 256.0,
-      //     1.0 / 65025.0 / 65025.0
-      //   )
-      //   const depthFromMap = dot(depthVec, unpackScale)
-      //   const depthShadowCoord = shadowCoord.z
-      //   const bias = 0.01
-      //   let shadowFactor = step(depthShadowCoord.sub(bias), depthFromMap)
-      //   const inFrustum = shadowCoord.x
-      //     .greaterThanEqual(0)
-      //     .and(shadowCoord.x.lessThanEqual(1))
-      //     .and(shadowCoord.y.greaterThanEqual(0))
-      //     .and(shadowCoord.y.lessThanEqual(1))
-      //   const inZ = shadowCoord.z.lessThanEqual(1)
-      //   shadowFactor = select(inFrustum.and(inZ), shadowFactor, float(1))
-      //   const shadowDarkness = 0.5
-      //   const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactor)
-      //   finalColor.assign(finalColor.mul(shadow))
-      // }
+      if (sunShadowMap && Settings.castShadows) {
+        const shadowCoord = vShadowCoord.xyz.div(vShadowCoord.w).mul(0.5).add(0.5)
+        const depthMapUv = shadowCoord.xy
+        const depthVec = texture(depthMapTex, depthMapUv)
+        const unpackScale = vec4(
+          1.0 / 256.0,
+          1.0 / 65025.0,
+          1.0 / 65025.0 / 256.0,
+          1.0 / 65025.0 / 65025.0
+        )
+        const depthFromMap = dot(depthVec, unpackScale)
+        const depthShadowCoord = shadowCoord.z
+        const bias = 0.01
+        let shadowFactor = step(depthShadowCoord.sub(bias), depthFromMap)
+        const inFrustum = shadowCoord.x
+          .greaterThanEqual(0)
+          .and(shadowCoord.x.lessThanEqual(1))
+          .and(shadowCoord.y.greaterThanEqual(0))
+          .and(shadowCoord.y.lessThanEqual(1))
+        const inZ = shadowCoord.z.lessThanEqual(1)
+        shadowFactor = select(inFrustum.and(inZ), shadowFactor, float(1))
+        const shadowDarkness = 0.5
+        const shadow = mix(float(1).sub(shadowDarkness), float(1), shadowFactor)
+        finalColor.assign(finalColor.mul(shadow))
+      }
 
       const fogFactor = float(1).sub(exp(this.uFogDensity.mul(this.uFogDensity).mul(vFogDepth).mul(vFogDepth).negate()))
       finalColor.assign(mix(finalColor, vec3(this.uFogColor), fogFactor))

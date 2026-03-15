@@ -66,17 +66,17 @@ export default class MainView {
     this.#components.boat?.initTreasures()
 
     // set up shadowmap on meshes (skipped while scene is empty)
-    // this.#scene.traverse((object) => {
-    //   if (object?.castCustomShadow === true) {
-    //     object.mainMaterial = object.material
-    //     object.shadowMaterial =
-    //       object.type === 'SkinnedMesh' ? EnvManager.shadowSkinMaterial : EnvManager.shadowMaterial
-    //     this.#meshShadows.push(object)
-    //   }
-    //   if (object?.receiveCustomShadow === true) {
-    //     this.#meshReceiveShadows.push(object)
-    //   }
-    // })
+    this.#scene.traverse((object) => {
+      if (object?.castCustomShadow === true) {
+        object.mainMaterial = object.material
+        object.shadowMaterial =
+          object.type === 'SkinnedMesh' ? EnvManager.shadowSkinMaterial : EnvManager.shadowMaterial
+        this.#meshShadows.push(object)
+      }
+      if (object?.receiveCustomShadow === true) {
+        this.#meshReceiveShadows.push(object)
+      }
+    })
 
       // this.#scene.background = this.#skyTexture.renderTarget.texture
     // TODO: replace with classic background

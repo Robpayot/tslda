@@ -11,7 +11,7 @@ import MainView from './views/MainView'
 import Settings from './utils/Settings'
 import LoaderManager from './managers/LoaderManager'
 import EnvManager from './managers/EnvManager'
-// import { ShadowMapViewer } from 'three/addons/utils/ShadowMapViewer.js'
+import { ShadowMapViewer } from 'three/addons/utils/ShadowMapViewerGPU.js'
 import OceanHeightMap from './components/Ocean/OceanHeightMap'
 import GameManager from './managers/GameManager'
 import ModeManager from './managers/ModeManager'
@@ -69,6 +69,10 @@ export default class WebGLApp {
     this._resize()
 
     Settings.sceneInit = true
+
+    this.depthViewer = new ShadowMapViewer(EnvManager.sunDir)
+    this.depthViewer.enabled = false
+    this.depthViewer.size.set(500, 500)
   }
 
   destroy() {
@@ -219,15 +223,14 @@ export default class WebGLApp {
 
     // render Target for Shadow Map
     if (view.components?.ocean?.mesh && EnvManager.settings.castShadows === true && Settings.castShadows) {
-      view.components.ocean.mesh.material = EnvManager.shadowMaterial
+      // view.components.ocean.mesh.material = EnvManager.shadowMaterial
       for (let i = 0; i < view.meshShadows?.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].shadowMaterial
       }
 
       for (let i = 0; i < view.meshReceiveShadows.length; i++) {
-        if (view.meshReceiveShadows[i].material.uniforms.uDepthMap) {
-          view.meshReceiveShadows[i].material.uniforms.uDepthMap.value = null
-        }
+        const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
+        if (u) u.value = null
       }
 
       // make visible false all mesh that don't need castShadows here
@@ -252,16 +255,13 @@ export default class WebGLApp {
       view.components.ocean.mesh.material = view.components.ocean.mainMaterial
       for (let i = 0; i < view.meshShadows.length; i++) {
         view.meshShadows[i].material = view.meshShadows[i].mainMaterial
-        if (view.meshShadows[i].material.uniforms.uDepthMap) {
-          // Fix warning on Chrome : Feedback loop formed between Framebuffer and active Texture.
-          view.meshShadows[i].material.uniforms.uDepthMap.value = EnvManager.sunShadowMap.map.texture
-        }
+        const u = view.meshShadows[i].material?.uniforms?.uDepthMap
+        if (u) u.value = EnvManager.sunShadowMap.map.texture
       }
 
       for (let i = 0; i < view.meshReceiveShadows.length; i++) {
-        if (view.meshReceiveShadows[i].material.uniforms.uDepthMap) {
-          view.meshReceiveShadows[i].material.uniforms.uDepthMap.value = EnvManager.sunShadowMap.map.texture
-        }
+        const u = view.meshReceiveShadows[i].material?.uniforms?.uDepthMap
+        if (u) u.value = EnvManager.sunShadowMap.map.texture
       }
       // reshow meshes taht don't need cast shadows
 
@@ -284,7 +284,10 @@ export default class WebGLApp {
 
     if (view && this.#isViewRenderingEnabled) {
       this.#renderer.render(view.scene, view.camera)
-      this.depthViewer?.render(this.#renderer.instance)
+      if (this.depthViewer) {
+        this.depthViewer.enabled = true
+        this.depthViewer.render(this.#renderer.instance)
+      }
 
       // this.#composer?.render(view)
 
