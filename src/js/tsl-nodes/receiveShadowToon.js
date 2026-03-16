@@ -125,9 +125,10 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   const uScale = uvTransform ? uniform(1.05) : null
   const uFlip = uvTransform ? uniform(-1) : null
 
+  // Sail-only shadow map: boat-body and Link sample this so they never see their own depth.
   const depthMapTex =
-    Settings.castShadows && EnvManager.sunShadowMap?.map?.texture
-      ? EnvManager.sunShadowMap.map.texture
+    Settings.castShadows && EnvManager.sunShadowMapSailOnly?.texture
+      ? EnvManager.sunShadowMapSailOnly.texture
       : LoaderManager.defaultTexture
 
   const shadowCam = EnvManager.sunShadowMap?.camera

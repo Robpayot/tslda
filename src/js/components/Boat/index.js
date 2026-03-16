@@ -208,10 +208,10 @@ export default class Boat {
         if (child.name === 'boat-body') {
           this.#boatBodyMesh = child
           child.material = createReceiveShadowMaterial(mapTexture)
-          // No castCustomShadow: boat-body only receives shadows; adding it to the shadow map would cause self-shadowing
+          child.castCustomShadow = true // hull casts shadow on ocean; sail handled by Sail.js
         } else {
           child.material = createToonMaterial(mapTexture)
-          child.castCustomShadow = true
+          // mast, crane, etc.: NOT shadow casters — they would shadow the deck from above
         }
       }
     })

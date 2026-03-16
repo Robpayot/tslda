@@ -229,7 +229,7 @@ export default class Link {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
         const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
         if (receiveShadowNames.includes(child.name)) {
-          // No castCustomShadow: these parts only receive shadows; casting would cause self-shadowing
+          child.castCustomShadow = true
           child.material = createLinkReceiveShadowMaterial(mapTexture, child)
         } else {
           child.material = createLinkToonMaterial(mapTexture, child)
@@ -238,15 +238,15 @@ export default class Link {
     })
 
     // Shield: receive shadow (pass mesh so SkinnedMesh gets skinned normals)
-    // No castCustomShadow: shield only receives shadows; casting would cause self-shadowing
     const textureShield = this.#shield.material?.map ?? LoaderManager.defaultTexture
+    this.#shield.castCustomShadow = true
     this.#shield.material = createLinkReceiveShadowMaterial(textureShield, this.#shield)
 
     // Master shield and sword
-    // No castCustomShadow: these parts only receive shadows; casting would cause self-shadowing
     this.#masterAndShield.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
         const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
+        child.castCustomShadow = true
         child.material = createLinkReceiveShadowMaterial(mapTexture, child)
       }
     })
