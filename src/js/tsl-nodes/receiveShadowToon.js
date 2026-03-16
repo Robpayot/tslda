@@ -14,8 +14,8 @@ import {
   uv,
   texture,
   positionLocal,
-  positionWorld,
   normalLocal,
+  modelWorldMatrix,
   normalGeometry,
   cameraViewMatrix,
   smoothstep,
@@ -47,13 +47,16 @@ export function createReceiveShadowNode(params) {
     uShadowCameraP,
     uShadowCameraV,
     uShadowMapTexelSize = float(SHADOW_MAP_TEXEL_SIZE),
+    uShadowBias = float(0.01),
   } = params
   return Fn(() => {
-    const shadowCoord4 = uShadowCameraP.mul(uShadowCameraV).mul(vec4(positionWorld, 1.0))
+    // Use rest-pose world position (modelWorldMatrix × positionLocal) so the UV matches
+    // what the shadow material stored — positionWorld is animated/skinned and would mismatch.
+    const shadowCoord4 = uShadowCameraP.mul(uShadowCameraV).mul(modelWorldMatrix).mul(vec4(positionLocal, 1.0))
     const shadowCoord = shadowCoord4.xyz.div(shadowCoord4.w).mul(0.5).add(0.5)
     const depthShadowCoord = shadowCoord.z
     const baseUv = vec2(shadowCoord.x, float(1).sub(shadowCoord.y))
-    const bias = float(0.01)
+    const bias = uShadowBias
     const depthBias = depthShadowCoord.sub(bias)
     const o = uShadowMapTexelSize
     const d0 = texture(depthMapTex, baseUv).r
@@ -121,14 +124,15 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
   const uSRGBSpace = uniform(sRGBShading ? 1 : 0)
 
+  const uShadowBias = uniform(0.01)
+
   const uDir = uvTransform ? uniform(new Vector2(0, 0)) : null
   const uScale = uvTransform ? uniform(1.05) : null
   const uFlip = uvTransform ? uniform(-1) : null
 
-  // Sail-only shadow map: boat-body and Link sample this so they never see their own depth.
   const depthMapTex =
-    Settings.castShadows && EnvManager.sunShadowMapSailOnly?.texture
-      ? EnvManager.sunShadowMapSailOnly.texture
+    Settings.castShadows && EnvManager.sunShadowMap?.map?.texture
+      ? EnvManager.sunShadowMap.map.texture
       : LoaderManager.defaultTexture
 
   const shadowCam = EnvManager.sunShadowMap?.camera
@@ -165,7 +169,7 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
 
     const receivedShadow =
       Settings.castShadows && shadowCam
-        ? createReceiveShadowNode({ depthMapTex, uShadowCameraP, uShadowCameraV, uShadowMapTexelSize })
+        ? createReceiveShadowNode({ depthMapTex, uShadowCameraP, uShadowCameraV, uShadowMapTexelSize, uShadowBias })
         : float(1.0)
 
     const rawDir = normalize(uSunDir)
@@ -198,6 +202,7 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   material.uSRGBSpace = uSRGBSpace
   material.uShadowCameraP = uShadowCameraP
   material.uShadowCameraV = uShadowCameraV
+  material.uShadowBias = uShadowBias
   if (maskTexture) {
     material.transparent = true
     material.uDir = uDir

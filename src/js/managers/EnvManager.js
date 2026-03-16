@@ -28,7 +28,6 @@ class EnvManager {
   #sunShadowMap
   #shadowMaterial
   #shadowSkinMaterial
-  #shadowMapSailOnly = null
   #ambientLight
   #state
   #scene
@@ -85,10 +84,6 @@ class EnvManager {
     return this.#shadowScene
   }
 
-  get sunShadowMapSailOnly() {
-    return this.#shadowMapSailOnly
-  }
-
   _createSunLight() {
     const dirLight = new DirectionalLight('#555555')
     dirLight.position.set(this.#settings.sunDir.x, this.#settings.sunDir.y, this.#settings.sunDir.z)
@@ -129,19 +124,13 @@ class EnvManager {
 
     this.#sunDir.shadow.map = new WebGLRenderTarget(mapW, mapH, pars)
 
-    // Sail-only shadow map: same resolution, used by boat-body/Link so they never see themselves.
-    this.#shadowMapSailOnly = new WebGLRenderTarget(mapW, mapH, {
-      minFilter: NearestFilter,
-      magFilter: NearestFilter,
-      format: RGBAFormat,
-      type: HalfFloatType,
-      depthTexture: new DepthTexture(mapW, mapH),
-    })
-
     // TSL shadow depth: outputs fragment depth in RGBA. Discard parts below y=0 (under water).
+    // depth.add(0.002): stored depth is always slightly > actual fragment depth, so a surface
+    // can never shadow itself (self-shadow test becomes mathematically impossible).
     const shadowColorNode = Fn(() => {
       If(positionWorld.y.lessThan(0), () => Discard())
-      return vec4(depth, depth, depth, 1.)
+      const d = depth.add(0.002)
+      return vec4(d, d, d, 1.)
     })()
     this.#shadowMaterial = new NodeMaterial()
     this.#shadowMaterial.positionNode = positionLocal

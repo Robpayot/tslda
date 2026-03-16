@@ -331,32 +331,6 @@ export default class WebGLApp {
         }
       }
 
-      // Second shadow pass: sail only → boat-body / Link sample this map so they never see themselves.
-      // Ocean already sampled the full map above; this overwrites nothing for ocean.
-      if (view.meshSailOnlyShadows?.length > 0 && EnvManager.sunShadowMapSailOnly) {
-        const sailShadowParents = view.meshSailOnlyShadows.map((m) => m.parent)
-
-        for (let i = 0; i < view.meshSailOnlyShadows.length; i++) {
-          view.meshSailOnlyShadows[i].material = view.meshSailOnlyShadows[i].shadowMaterial
-        }
-        for (let i = 0; i < view.meshSailOnlyShadows.length; i++) {
-          saveWorldAndAdd(view.meshSailOnlyShadows[i], shadowScene)
-        }
-
-        this.#renderer.instance.setRenderTarget(EnvManager.sunShadowMapSailOnly)
-        this.#renderer.instance.setClearColor(0x000000, 1)
-        this.#renderer.instance.clear()
-        this.#renderer.render(shadowScene, shadowCam)
-        this.#renderer.instance.setClearColor(0xffffff, 1)
-        this.#renderer.instance.setRenderTarget(null)
-
-        for (let i = 0; i < view.meshSailOnlyShadows.length; i++) {
-          if (sailShadowParents[i]) restoreToParent(view.meshSailOnlyShadows[i], sailShadowParents[i])
-        }
-        for (let i = 0; i < view.meshSailOnlyShadows.length; i++) {
-          view.meshSailOnlyShadows[i].material = view.meshSailOnlyShadows[i].mainMaterial
-        }
-      }
     }
 
     if (view && this.#isViewRenderingEnabled) {

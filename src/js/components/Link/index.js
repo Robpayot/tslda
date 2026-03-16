@@ -41,6 +41,7 @@ export default class Link {
     hatRX: 0,
     hatRY: 0,
     hatRZ: 0,
+    shadowBias: 0.445,
   }
   sailState = 0.01
   #scene
@@ -218,13 +219,7 @@ export default class Link {
     this.#masterAndShield = this.#mesh.getObjectByName('link-master-sword-shield')
 
     // replace materials with TSL toon / receive shadow
-    const receiveShadowNames = [
-      'link-arms-bassin',
-      'link-body-ears',
-      'link-hair',
-      'link-head',
-      'link-hat',
-    ]
+    const receiveShadowNames = ['link-arms-bassin', 'link-body-ears', 'link-hair', 'link-head', 'link-hat']
     this.#mesh.children.forEach((child) => {
       if (child.type === 'SkinnedMesh' || child.type === 'Mesh') {
         const mapTexture = child.material?.map ?? LoaderManager.defaultTexture
@@ -309,6 +304,8 @@ export default class Link {
 
     this.#mouth.material = createLinkMouthMaterial(this.#mouthTextures[this.#mouthIndex], this.#mouth)
     this.#mouth.receiveCustomShadow = true
+
+    this._updateShadowBias(this.#settings.shadowBias)
   }
 
   _createMesh() {
@@ -364,7 +361,11 @@ export default class Link {
       this.#eyeRight.material = createLinkBasicMaterial(this.#eyesTextures[this.#eyeRightIndex])
       const texPupilR = LoaderManager.get(this.#isDark ? 'dark_pupil' : 'pupil').texture
       texPupilR.colorSpace = SRGBColorSpace
-      this.#pupilRight.material = createPupilMaterial(texPupilR, this.#eyesTextures[this.#eyeRightIndex], this.#pupilRight)
+      this.#pupilRight.material = createPupilMaterial(
+        texPupilR,
+        this.#eyesTextures[this.#eyeRightIndex],
+        this.#pupilRight
+      )
       this.#pupilRight.material.uFlip.value = 1
       this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
       this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
@@ -384,13 +385,7 @@ export default class Link {
     texPupil.flipY = false
     texPupil.needsUpdate = true
 
-    const receiveShadowNames = [
-      'link-arms-bassin',
-      'link-body-ears',
-      'link-hair',
-      'link-head',
-      'link-hat',
-    ]
+    const receiveShadowNames = ['link-arms-bassin', 'link-body-ears', 'link-hair', 'link-head', 'link-hat']
     const darkBodyNames = [
       'link-arms-bassin',
       'link-belt',
@@ -475,12 +470,29 @@ export default class Link {
     })
   }
 
+  _updateShadowBias(bias) {
+    const updateObj = (obj) => {
+      if (!obj) return
+      obj.traverse((child) => {
+        if (child.material?.uShadowBias) child.material.uShadowBias.value = bias
+      })
+    }
+    updateObj(this.#mesh)
+    updateObj(this.#shield)
+    updateObj(this.#masterAndShield)
+    if (this.#mouth?.material?.uShadowBias) this.#mouth.material.uShadowBias.value = bias
+  }
+
   _syncMaterialEnvUniforms(material) {
     if (EnvManager.sunDir?.position) material.uSunDir.value = EnvManager.sunDir.position
-    if (material.uAmbientColor && EnvManager.ambientLight?.color) material.uAmbientColor.value = EnvManager.ambientLight.color
-    if (material.uCoefShadow != null && EnvManager.settings?.coefShadow != null) material.uCoefShadow.value = EnvManager.settings.coefShadow
-    if (material.uShadowCameraP && EnvManager.sunShadowMap?.camera?.projectionMatrix) material.uShadowCameraP.value = EnvManager.sunShadowMap.camera.projectionMatrix
-    if (material.uShadowCameraV && EnvManager.sunShadowMap?.camera?.matrixWorldInverse) material.uShadowCameraV.value = EnvManager.sunShadowMap.camera.matrixWorldInverse
+    if (material.uAmbientColor && EnvManager.ambientLight?.color)
+      material.uAmbientColor.value = EnvManager.ambientLight.color
+    if (material.uCoefShadow != null && EnvManager.settings?.coefShadow != null)
+      material.uCoefShadow.value = EnvManager.settings.coefShadow
+    if (material.uShadowCameraP && EnvManager.sunShadowMap?.camera?.projectionMatrix)
+      material.uShadowCameraP.value = EnvManager.sunShadowMap.camera.projectionMatrix
+    if (material.uShadowCameraV && EnvManager.sunShadowMap?.camera?.matrixWorldInverse)
+      material.uShadowCameraV.value = EnvManager.sunShadowMap.camera.matrixWorldInverse
   }
 
   resize({ width, height }) {}
@@ -514,6 +526,10 @@ export default class Link {
     debug.addInput(this.#settings, 'hatRX').on('change', settingsChangedHandler)
     debug.addInput(this.#settings, 'hatRY').on('change', settingsChangedHandler)
     debug.addInput(this.#settings, 'hatRZ').on('change', settingsChangedHandler)
+
+    debug.addInput(this.#settings, 'shadowBias', { min: 0.35, max: 0.6, step: 0.001 }).on('change', () => {
+      this._updateShadowBias(this.#settings.shadowBias)
+    })
 
     const btn = debug.addButton({
       title: 'Copy settings',

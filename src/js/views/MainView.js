@@ -33,7 +33,6 @@ export default class MainView {
   #debugFolder
   #gltf
   #meshShadows = []
-  #meshSailOnlyShadows = []
   #meshReceiveShadows = []
   constructor({ config, renderer }) {
     // Options
@@ -73,9 +72,6 @@ export default class MainView {
         object.shadowMaterial = EnvManager.shadowMaterial
         this.#meshShadows.push(object)
       }
-      if (object?.castSailOnlyShadow === true) {
-        this.#meshSailOnlyShadows.push(object)
-      }
       if (object?.receiveCustomShadow === true) {
         this.#meshReceiveShadows.push(object)
       }
@@ -106,10 +102,6 @@ export default class MainView {
 
   get meshShadows() {
     return this.#meshShadows
-  }
-
-  get meshSailOnlyShadows() {
-    return this.#meshSailOnlyShadows
   }
 
   get meshReceiveShadows() {
