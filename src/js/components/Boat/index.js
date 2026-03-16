@@ -208,11 +208,11 @@ export default class Boat {
         if (child.name === 'boat-body') {
           this.#boatBodyMesh = child
           child.material = createReceiveShadowMaterial(mapTexture)
+          // No castCustomShadow: boat-body only receives shadows; adding it to the shadow map would cause self-shadowing
         } else {
           child.material = createToonMaterial(mapTexture)
+          child.castCustomShadow = true
         }
-
-        child.castCustomShadow = true
       }
     })
   }

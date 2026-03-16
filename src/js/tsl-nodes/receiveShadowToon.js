@@ -32,17 +32,6 @@ import EnvManager from '../managers/EnvManager'
 import LoaderManager from '../managers/LoaderManager'
 import Settings from '../utils/Settings'
 
-const BIT_SHIFT = vec4(
-  1.0 / (256.0 * 256.0 * 256.0),
-  1.0 / (256.0 * 256.0),
-  1.0 / 256.0,
-  1.0,
-)
-
-function unpackRGBAToDepth(color) {
-  return dot(color, BIT_SHIFT)
-}
-
 /** Texel size for PCF; fallback if shadow map not ready */
 const SHADOW_MAP_TEXEL_SIZE = 1 / 512
 
@@ -144,6 +133,8 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   const shadowCam = EnvManager.sunShadowMap?.camera
   const uShadowCameraP = uniform(shadowCam?.projectionMatrix)
   const uShadowCameraV = uniform(shadowCam?.matrixWorldInverse)
+  const mapW = EnvManager.sunShadowMap?.map?.width ?? 512
+  const uShadowMapTexelSize = float(1 / mapW)
 
   // Fix normals: varying + transformNormalToView (same pattern as entityToon). View-space lighting so sun is consistent.
   const vNormalLocal = varying(vec3(0, 1, 0), 'vNormalLocal_receiveShadow')
@@ -171,29 +162,10 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
         : uvBase
     const tex = texture(mapTex, uvTransformed)
 
-    let receivedShadow = float(1.0)
-    if (Settings.castShadows && shadowCam) {
-      const shadowCoord4 = uShadowCameraP.mul(uShadowCameraV).mul(vec4(positionWorld, 1.0))
-      const shadowCoord = shadowCoord4.xyz.div(shadowCoord4.w).mul(0.5).add(0.5)
-
-      const depthShadowCoord = shadowCoord.z
-      const depthMapSample = texture(depthMapTex, shadowCoord.xy)
-      const depthDepthMap = unpackRGBAToDepth(depthMapSample)
-
-      const bias = float(0.01)
-      const shadowFactor = step(depthShadowCoord.sub(bias), depthDepthMap)
-
-      const inFrustum = shadowCoord.x
-        .greaterThanEqual(0.0)
-        .and(shadowCoord.x.lessThanEqual(1.0))
-        .and(shadowCoord.y.greaterThanEqual(0.0))
-        .and(shadowCoord.y.lessThanEqual(1.0))
-        .and(shadowCoord.z.lessThanEqual(1.0))
-      const clampedFactor = select(inFrustum, shadowFactor, float(1.0))
-
-      const shadowDarkness = float(0.5)
-      receivedShadow = mix(float(1.0).sub(shadowDarkness), float(1.0), clampedFactor)
-    }
+    const receivedShadow =
+      Settings.castShadows && shadowCam
+        ? createReceiveShadowNode({ depthMapTex, uShadowCameraP, uShadowCameraV, uShadowMapTexelSize })
+        : float(1.0)
 
     const rawDir = normalize(uSunDir)
     const sunDirView = normalize(cameraViewMatrix.mul(vec4(rawDir, 0)).xyz)
