@@ -2,67 +2,76 @@ import { NodeMaterial } from 'three/webgpu'
 import {
   Fn,
   uniform,
+  varying,
   float,
   vec3,
   vec4,
   uv,
   texture,
-  positionWorld,
+  positionLocal,
   normalLocal,
-  modelWorldMatrixInverse,
+  normalGeometry,
+  cameraViewMatrix,
   smoothstep,
   dot,
   normalize,
-  mix,
-  select,
-  step,
+  transformNormalToView,
+  skinning,
 } from 'three/tsl'
 import { Color, Vector3 } from 'three'
 import EnvManager from '../../managers/EnvManager'
 import LoaderManager from '../../managers/LoaderManager'
 import { createReceiveShadowMaterial, createPupilReceiveShadowMaterial } from '../../tsl-nodes/receiveShadowToon'
 
-function fromLinear(linearRGB) {
-  const higher = linearRGB.rgb
-    .pow(1.0 / 2.4)
-    .mul(1.055)
-    .sub(0.055)
-  const lower = linearRGB.rgb.mul(12.92)
-  const t = step(float(0.0031308), linearRGB.rgb)
-  return vec4(mix(lower, higher, t), linearRGB.a)
-}
-
 /**
- * Toon material. Pass a real THREE.Texture (skill: no texture(uniform)).
- * To swap map, replace material with createLinkToonMaterial(newTexture).
+ * Toon material. Pass a real THREE.Texture and optionally the mesh (required for SkinnedMesh so normals are skinned).
+ * Uses view-space lighting, same approach as createReceiveShadowMaterialInternal.
+ * To swap map, replace material with createLinkToonMaterial(newTexture, mesh).
  */
-export function createLinkToonMaterial(mapTexture) {
+export function createLinkToonMaterial(mapTexture, mesh = null) {
   const mapTex = mapTexture ?? LoaderManager.defaultTexture
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
   const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
   const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
   const uSRGBSpace = uniform(0)
 
+  const isSkinned = mesh != null && mesh.type === 'SkinnedMesh'
+  const vNormalLocal = varying(vec3(0, 1, 0), 'vNormalLocal_toon')
+  const skinningNode = isSkinned ? skinning(mesh) : null
+  const vNormalSkinned = skinningNode ? varying(vec3(0, 1, 0), 'vNormalSkinned_toon') : null
+
+  const positionNodeFn = skinningNode
+    ? Fn(() => {
+        const boneMatrices = skinningNode.boneMatricesNode
+        const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
+        vNormalSkinned.assign(normalize(skinNormal))
+        return positionLocal
+      })
+    : Fn(() => {
+        vNormalLocal.assign(normalLocal)
+        return positionLocal
+      })
+
+  const normalViewNode = skinningNode != null ? transformNormalToView(vNormalSkinned) : transformNormalToView(vNormalLocal)
+
   const colorFn = Fn(() => {
     const tex = texture(mapTex, uv())
-    const sunDirWorld = normalize(uSunDir.sub(positionWorld))
-    const sunDirLocal = normalize(modelWorldMatrixInverse.mul(vec4(sunDirWorld, 0)).xyz)
-    const shadow = dot(normalLocal, sunDirLocal)
+    const rawDir = normalize(uSunDir)
+    const sunDirView = normalize(cameraViewMatrix.mul(vec4(rawDir, 0)).xyz)
+    const shadow = dot(normalize(normalViewNode), sunDirView)
     const toonShading = float(1)
       .mul(smoothstep(float(0.0), float(0.1), shadow))
       .mul(0.9)
       .mul(uCoefShadow)
       .add(uAmbientColor.r)
 
-    const linearShading = vec3(toonShading, toonShading, toonShading)
-    const srgbShading = fromLinear(vec4(linearShading, 1.0)).rgb
-    const finalShading = select(uSRGBSpace.equal(1.0), srgbShading, linearShading)
-
-    return vec4(tex.rgb.mul(finalShading), 1.0)
+    return vec4(tex.rgb.mul(toonShading), 1.0)
   })
 
   const material = new NodeMaterial()
   material.name = 'toon'
+  material.positionNode = positionNodeFn()
+  material.normalNode = normalViewNode
   material.colorNode = colorFn()
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor

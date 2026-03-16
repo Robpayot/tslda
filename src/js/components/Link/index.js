@@ -232,7 +232,7 @@ export default class Link {
           child.castCustomShadow = true
           child.material = createLinkReceiveShadowMaterial(mapTexture, child)
         } else {
-          child.material = createLinkToonMaterial(mapTexture)
+          child.material = createLinkToonMaterial(mapTexture, child)
         }
       }
     })
