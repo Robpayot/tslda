@@ -386,26 +386,23 @@ export default class Link {
     texPupil.needsUpdate = true
 
     const receiveShadowNames = ['link-arms-bassin', 'link-body-ears', 'link-hair', 'link-head', 'link-hat']
-    const darkBodyNames = [
-      'link-arms-bassin',
-      'link-belt',
-      'link-body-ears',
-      'link-hair',
-      'link-handLeft',
-      'link-handRight',
-      'link-hat',
-      'link-head',
-      'link-legs',
-      'link-nose',
-    ]
-    this.#mesh.children.forEach((child) => {
-      if ((child.type === 'SkinnedMesh' || child.type === 'Mesh') && darkBodyNames.includes(child.name)) {
-        const mat = receiveShadowNames.includes(child.name)
-          ? createLinkReceiveShadowMaterial(darkTunic)
-          : createLinkToonMaterial(darkTunic)
-        mat.uSRGBSpace.value = 1
-        child.material = mat
-      }
+    // Face parts handled explicitly below; shield/sword keep their own material
+    const skipNames = new Set([
+      'link-mouth', 'link-pupilLeft', 'link-pupilRight',
+      'link-eyeLeft', 'link-eyeRight', 'link-eyebrowLeft', 'link-eyebrowRight',
+    ])
+    this.#mesh.traverse((child) => {
+      if (child.type !== 'SkinnedMesh' && child.type !== 'Mesh') return
+      if (skipNames.has(child.name)) return
+      if (child.name?.includes('shield') || child.name?.includes('sword') || child.name?.includes('master')) return
+      const mat = receiveShadowNames.includes(child.name)
+        ? createLinkReceiveShadowMaterial(darkTunic, child)
+        : createLinkToonMaterial(darkTunic, child)
+      mat.uSRGBSpace.value = 1
+      if (mat.uShadowBias) mat.uShadowBias.value = this.#settings.shadowBias
+      child.material = mat
+      // mainMaterial is used by WebGLApp each frame to restore material after the shadow pass
+      if (child.mainMaterial !== undefined) child.mainMaterial = mat
     })
 
     this.#mouth.material = createLinkMouthMaterial(this.#darkMouthTextures[this.#mouthIndex], this.#mouth)
