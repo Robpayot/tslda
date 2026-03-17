@@ -143,9 +143,14 @@ export default class Boat {
           this.#particlesFrontMesh.transitioningSpeed(this.#mode)
         },
       })
-      this.tlHook.to(this.#mastBaseBone.scale, { x: 0, y: 0, z: 0, duration: 0.75, ease: 'power4.out' }, 0)
-      this.tlHook.to(this.#sailMesh.mesh.scale, { x: 0, y: 0, z: 0, duration: 0.75, ease: 'power4.out' }, 0)
+      // Tween to 0.001 (never exactly 0) — WebGPU corrupts the compiled positionNode shader
+      // permanently when a SkinnedMesh bone or mesh scale becomes a degenerate matrix.
+      this.tlHook.to(this.#mastBaseBone.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.75, ease: 'power4.out' }, 0)
+      this.tlHook.to(this.#sailMesh.mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.75, ease: 'power4.out' }, 0)
       this.tlHook.to(this.#sailMesh.mesh.position, { z: -60, duration: 0.75, ease: 'power4.out' }, 0)
+      this.tlHook.add(() => {
+        this.#sailMesh.mesh.visible = false
+      }, 0.76)
 
       this.tlHook.add(() => {
         this.#craneMesh.open()
@@ -159,6 +164,9 @@ export default class Boat {
       this.tlHook = new gsap.timeline()
       this.tlHook.add(() => {
         this.#craneMesh.close()
+      }, 0)
+      this.tlHook.add(() => {
+        this.#sailMesh.mesh.visible = true
       }, 0)
       this.tlHook.to(this.#mastBaseBone.scale, { x: 1, y: 1, z: 1, duration: 1, ease: 'bounce.out' }, delay)
       const scaleX = -this.mastDir * 1.1
