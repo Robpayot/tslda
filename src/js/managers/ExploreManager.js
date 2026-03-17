@@ -56,7 +56,7 @@ const pointInPolygon = function (polygon, point) {
 // 3: Mirador
 // 4: Grey ship
 
-const NB_ENTITIES = 30
+const NB_ENTITIES = 45
 const NB_WINDS = 3
 
 const LIGHT_RINGS_DATA = [
@@ -261,7 +261,7 @@ class ExploreManager {
   _createRupees() {
     const rupees = new Rupees(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const mesh = rupees.add(0, 0)
       this.#parent.add(mesh)
     }
@@ -272,7 +272,7 @@ class ExploreManager {
   _createBarrels() {
     const barrels = new Barrels(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const mesh = barrels.add(0, 0)
       this.#parent.add(mesh)
     }
@@ -283,7 +283,7 @@ class ExploreManager {
   _createBarrelRupees() {
     const barrelRupees = new BarrelRupees(this.#parent, this.#rupees, this.#barrels, MODE.EXPLORE)
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const mesh = barrelRupees.add(0, 0)
       this.#parent.add(mesh)
     }
@@ -294,7 +294,7 @@ class ExploreManager {
   _createMirador() {
     const miradors = new Mirador(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const mesh = miradors.add(0, 0)
       this.#parent.add(mesh)
     }
@@ -305,7 +305,7 @@ class ExploreManager {
   _createShipsGrey() {
     const ships = new ShipGrey(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const mesh = ships.add(0, 0)
       this.#parent.add(mesh)
     }
@@ -329,7 +329,7 @@ class ExploreManager {
 
   _initEntities() {
     for (let i = 0; i < NB_ENTITIES; i++) {
-      this._addEntity()
+      this._addEntity(i < Math.floor(NB_ENTITIES * 0.35))
     }
   }
 

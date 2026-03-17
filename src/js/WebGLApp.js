@@ -11,7 +11,7 @@ import MainView from './views/MainView'
 import Settings from './utils/Settings'
 import LoaderManager from './managers/LoaderManager'
 import EnvManager from './managers/EnvManager'
-import { ShadowMapViewer } from 'three/addons/utils/ShadowMapViewerGPU.js'
+// import { ShadowMapViewer } from 'three/addons/utils/ShadowMapViewerGPU.js'
 import OceanHeightMap from './components/Ocean/OceanHeightMap'
 import GameManager from './managers/GameManager'
 import ModeManager from './managers/ModeManager'
@@ -70,9 +70,9 @@ export default class WebGLApp {
 
     Settings.sceneInit = true
 
-    this.depthViewer = new ShadowMapViewer(EnvManager.sunDir)
-    this.depthViewer.enabled = false
-    this.depthViewer.size.set(500, 500)
+    // this.depthViewer = new ShadowMapViewer(EnvManager.sunDir)
+    // this.depthViewer.enabled = false
+    // this.depthViewer.size.set(500, 500)
   }
 
   destroy() {
@@ -335,10 +335,10 @@ export default class WebGLApp {
 
     if (view && this.#isViewRenderingEnabled) {
       this.#renderer.render(view.scene, view.camera)
-      if (this.depthViewer) {
-        this.depthViewer.enabled = true
-        this.depthViewer.render(this.#renderer.instance)
-      }
+      // if (this.depthViewer) {
+      //   this.depthViewer.enabled = true
+      //   this.depthViewer.render(this.#renderer.instance)
+      // }
 
       // this.#composer?.render(view)
 
@@ -375,7 +375,7 @@ export default class WebGLApp {
     // call components resize
 
     this.#views.main.resize({ width, height })
-    this.depthViewer?.updateForWindowResize()
+    // this.depthViewer?.updateForWindowResize()
   }
 
   /**
