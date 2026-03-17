@@ -297,6 +297,7 @@ export default class Link {
     }
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`dark-mouth${i + 1}`).texture
+      tex.colorSpace = SRGBColorSpace
       tex.flipY = false
       this.#darkMouthTextures.push(tex)
     }
@@ -376,6 +377,7 @@ export default class Link {
   _setDarkLink = () => {
     this.#isDark = true
     const darkTunic = LoaderManager.get('dark_tunic').texture
+    darkTunic.colorSpace = SRGBColorSpace
     darkTunic.flipY = false
     darkTunic.needsUpdate = true
 
