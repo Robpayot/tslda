@@ -68,9 +68,12 @@ class UIManager {
     this.msgEl = document.querySelector('[data-explore-message]')
 
     const cookieConsent = window.localStorage.getItem('cookie-consent')
+    const cookieDismissed = window.localStorage.getItem('cookie-dismissed')
 
     if (cookieConsent) {
       this._cookieConsent()
+    } else if (cookieDismissed) {
+      // already dismissed once — don't show again
     } else {
       this.cookieEl.classList.add('visible')
       this.cookieElBtn.addEventListener('click', this._cookieConsent)
@@ -598,6 +601,7 @@ class UIManager {
   }
 
   _cookieNo = () => {
+    window.localStorage.setItem('cookie-dismissed', true)
     this.cookieEl.classList.remove('visible')
   }
 }
