@@ -297,7 +297,6 @@ export default class Link {
     }
     for (let i = 0; i < NB_MOUTH; i++) {
       const tex = LoaderManager.get(`dark-mouth${i + 1}`).texture
-      tex.colorSpace = SRGBColorSpace
       tex.flipY = false
       this.#darkMouthTextures.push(tex)
     }
@@ -388,8 +387,13 @@ export default class Link {
     const receiveShadowNames = ['link-arms-bassin', 'link-body-ears', 'link-hair', 'link-head', 'link-hat']
     // Face parts handled explicitly below; shield/sword keep their own material
     const skipNames = new Set([
-      'link-mouth', 'link-pupilLeft', 'link-pupilRight',
-      'link-eyeLeft', 'link-eyeRight', 'link-eyebrowLeft', 'link-eyebrowRight',
+      'link-mouth',
+      'link-pupilLeft',
+      'link-pupilRight',
+      'link-eyeLeft',
+      'link-eyeRight',
+      'link-eyebrowLeft',
+      'link-eyebrowRight',
     ])
     this.#mesh.traverse((child) => {
       if (child.type !== 'SkinnedMesh' && child.type !== 'Mesh') return
@@ -405,7 +409,10 @@ export default class Link {
       if (child.mainMaterial !== undefined) child.mainMaterial = mat
     })
 
-    this.#mouth.material = createLinkMouthMaterial(this.#darkMouthTextures[this.#mouthIndex], this.#mouth)
+    const darkMouthTex = this.#darkMouthTextures[this.#mouthIndex]
+    darkMouthTex.needsUpdate = true
+    this.#mouth.material = createLinkMouthMaterial(darkMouthTex, this.#mouth)
+    this.#mouth.material.uShadowBias.value = this.#settings.shadowBias
     this.#mouth.receiveCustomShadow = true
 
     this.#pupilLeft.material = createPupilMaterial(texPupil, this.#eyesTextures[this.#eyeLeftIndex], this.#pupilLeft)
