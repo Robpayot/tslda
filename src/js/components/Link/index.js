@@ -41,7 +41,7 @@ export default class Link {
     hatRX: 0,
     hatRY: 0,
     hatRZ: 0,
-    shadowBias: 0.445,
+    shadowBias: 0.44,
   }
   sailState = 0.01
   #scene

@@ -40,7 +40,7 @@ export default class Boat {
     color: '#4c6ed4',
     power: 0.91,
     speedTex: 0.01,
-    shadowBias: 0.445,
+    shadowBias: 0.44,
   }
   #scale = 5 // 5
   #initRotaY = degToRad(180)
@@ -331,7 +331,6 @@ export default class Boat {
       this.#initRotaZ + Math.sin(time + this.rotaZ) * (0.1 + ControllerManager.boat.turnForce * 0.5)
     this.#mesh.rotation.x = this.#initRotaX + Math.sin(time) * Math.min(ControllerManager.boat.velocity * 6, 0.2)
 
-
     this.#sailMesh?.update({ time, delta })
 
     this.#splashMeshes?.update({ time, delta })
@@ -466,7 +465,8 @@ export default class Boat {
 
     debug.addInput(this.#settings, 'power', { step: 0.01 }).on('change', settingsChangedHandler)
     debug.addInput(this.#settings, 'shadowBias', { min: 0.35, max: 0.6, step: 0.001 }).on('change', () => {
-      if (this.#boatBodyMesh?.material?.uShadowBias) this.#boatBodyMesh.material.uShadowBias.value = this.#settings.shadowBias
+      if (this.#boatBodyMesh?.material?.uShadowBias)
+        this.#boatBodyMesh.material.uShadowBias.value = this.#settings.shadowBias
     })
     debug.addInput(this.#triforceShards[0], 'rotation')
 
