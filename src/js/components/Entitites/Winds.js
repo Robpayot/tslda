@@ -168,6 +168,7 @@ export default class Winds {
     material.side = DoubleSide
     material.transparent = true
     material.depthTest = false
+    material.depthWrite = false
     material.uTime = uTime
 
     return material

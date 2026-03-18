@@ -1,8 +1,4 @@
-import {
-  InstancedMesh,
-  PlaneGeometry,
-  InstancedBufferAttribute,
-} from 'three'
+import { InstancedMesh, PlaneGeometry, InstancedBufferAttribute } from 'three'
 import { SpriteNodeMaterial } from 'three/webgpu'
 import {
   Fn,
@@ -29,7 +25,7 @@ import LoaderManager from '../../managers/LoaderManager'
 const NB_POINTS = 10
 const RANGE_MAX = 3000
 const RANGE_MIN = 2500
-const SPRITE_SCALE = 266
+const SPRITE_SCALE = 300
 
 export default class Lightnings {
   #mesh
@@ -78,10 +74,7 @@ export default class Lightnings {
 
     const count = NB_POINTS
     const planeGeo = new PlaneGeometry(1, 1)
-    planeGeo.setAttribute(
-      'instancePosition',
-      new InstancedBufferAttribute(new Float32Array(positionArray), 3)
-    )
+    planeGeo.setAttribute('instancePosition', new InstancedBufferAttribute(new Float32Array(positionArray), 3))
 
     const lightningAsset = LoaderManager.get('lightning')
     const mapTexture = LoaderManager.getTexture('lightning')
@@ -139,6 +132,8 @@ export default class Lightnings {
     material.uRatioTexture = uRatioTexture
     material.uOpacity = uOpacity
     material.uGlobalOpacity = uGlobalOpacity
+    material.transparent = true
+    material.depthWrite = false
 
     const mesh = new InstancedMesh(planeGeo, material, count)
 
