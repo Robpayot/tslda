@@ -37,6 +37,7 @@ class EnvManager {
     sunDir: new Vector3(DATA_ENV.explore[this.#index].sunDirX, DATA_ENV.explore[this.#index].sunDirY, 0), // Aube : -10,3, 0
     ambientLight: DATA_ENV.explore[this.#index].ambientLight,
     coefShadow: DATA_ENV.explore[this.#index].coefShadow,
+    shadowBias: DATA_ENV.explore[this.#index].shadowBias ?? 0.44,
     sky: DATA_ENV.explore[this.#index].sky,
     sky2: DATA_ENV.explore[this.#index].sky2,
     alphaClouds: DATA_ENV.explore[this.#index].alphaClouds,
@@ -276,6 +277,10 @@ class EnvManager {
     // update Lights and toon
     this.#settings.coefShadow = current.coefShadow + this.progress * (next.coefShadow - current.coefShadow)
 
+    if (current.shadowBias !== undefined && next.shadowBias !== undefined) {
+      this.#settings.shadowBias = current.shadowBias + this.progress * (next.shadowBias - current.shadowBias)
+    }
+
     const currentAmbient = hexToRgb(current.ambientLight)
     const nextAmbient = hexToRgb(next.ambientLight)
 
@@ -363,6 +368,9 @@ class EnvManager {
       } else if (material.uAmbientColor) {
         if (material.uCoefShadow) {
           material.uCoefShadow.value = this.#settings.coefShadow
+        }
+        if (material.uShadowBias != null) {
+          material.uShadowBias.value = this.#settings.shadowBias
         }
       }
     }
