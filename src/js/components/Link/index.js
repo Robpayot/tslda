@@ -331,6 +331,7 @@ export default class Link {
       }
 
       this.#mouth.material = createLinkReceiveShadowMaterial(arrMouth[this.#mouthIndex], this.#mouth)
+      this.#mouth.material.uShadowBias.value = this.#settings.shadowBias
 
       el.innerHTML = this.#mouthIndex + 1
     } else if (type === 'eye-left') {
@@ -348,6 +349,7 @@ export default class Link {
       this.#pupilLeft.material.uFlip.value = -1
       this.#pupilLeft.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
       this.#pupilLeft.material.uScale.value = this.#settings.pupil.scale
+      this.#pupilLeft.material.uShadowBias.value = this.#settings.shadowBias
 
       el.innerHTML = this.#eyeLeftIndex + 1
     } else if (type === 'eye-right') {
@@ -369,6 +371,7 @@ export default class Link {
       this.#pupilRight.material.uFlip.value = 1
       this.#pupilRight.material.uDir.value = new Vector2(this.#settings.pupil.dirX, this.#settings.pupil.dirY)
       this.#pupilRight.material.uScale.value = this.#settings.pupil.scale
+      this.#pupilRight.material.uShadowBias.value = this.#settings.shadowBias
 
       el.innerHTML = this.#eyeRightIndex + 1
     }
