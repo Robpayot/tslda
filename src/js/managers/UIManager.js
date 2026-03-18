@@ -64,6 +64,8 @@ class UIManager {
     this.cookieElNoBtn = document.body.querySelector('[data-cookie-button-no]')
     this.treasureEl = document.body.querySelector('[data-treasure]')
     this.treasureElBtn = document.body.querySelector('[data-treasure-btn]')
+    this.deathEl = document.body.querySelector('[data-death]')
+    this.deathElBtn = document.body.querySelector('[data-death-btn]')
     this.triforceShards = document.body.querySelectorAll('[data-triforce]')
     this.msgEl = document.querySelector('[data-explore-message]')
 
@@ -84,6 +86,7 @@ class UIManager {
     this.gameElStart.addEventListener('click', this._gameStartClick)
     this.aboutElBtn.addEventListener('click', this._closeAbout)
     this.treasureElBtn.addEventListener('click', this._closeTreasure)
+    this.deathElBtn.addEventListener('click', this._closeDeath)
     this.footerSound.addEventListener('click', this._toggleSound)
     this.footerSoundTouch.addEventListener('click', this._toggleSound)
 
@@ -329,6 +332,11 @@ class UIManager {
       this.joystickEl.classList.remove('is-game')
       this.jumpBtnEl.classList.remove('is-game')
       this.exploreEl.classList.add('visible')
+      if (window.localStorage.getItem('explore-intro-seen')) {
+        this.exploreEl.classList.add('tuto2')
+        this.exploreEl.classList.add('started')
+        SoundManager.startMusic(SOUNDS_CONST.MUSIC_SEA)
+      }
       this.menuElBtns[1].classList.remove('hidden')
       // this.menuElBtns[3].classList.remove('hidden')
       EventBusSingleton.publish(START_EXPLORE)
@@ -466,6 +474,16 @@ class UIManager {
     EventBusSingleton.publish(CLOSE_TREASURE)
   }
 
+  showDeath() {
+    this.deathEl.classList.add('visible')
+  }
+
+  _closeDeath = () => {
+    SoundManager.play(SOUNDS_CONST.CLOSE)
+    this.deathEl.classList.remove('visible')
+    ExploreManager.start()
+  }
+
   _closeScreenshot = () => {
     SoundManager.play(SOUNDS_CONST.CLOSE)
     this.screenshotEl.classList.remove('visible')
@@ -537,6 +555,7 @@ class UIManager {
       this.exploreEl.classList.add('tuto2')
     } else {
       this.exploreEl.classList.add('started')
+      window.localStorage.setItem('explore-intro-seen', 'true')
       SoundManager.startMusic(SOUNDS_CONST.MUSIC_SEA)
     }
     SoundManager.play(SOUNDS_CONST.CLOSE)

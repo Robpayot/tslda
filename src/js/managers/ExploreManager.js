@@ -374,6 +374,11 @@ class ExploreManager {
 
     // get random coordinate from min distance entityRange radius
 
+    // Suppress front spawning when an island is within view distance
+    if (addInFront && this.isNearIsland) {
+      addInFront = false
+    }
+
     let angle = Math.random() * 2 * Math.PI // Random angle in radians
     if (addInFront) {
       const playerDir = -ControllerManager.boat.angleDir + degToRad(-90)
@@ -522,10 +527,9 @@ class ExploreManager {
     UIManager.updateHearts(MODE.EXPLORE)
 
     if (this.#life === 0) {
-      // see waht we do
       this.reset()
       setTimeout(() => {
-        this.start()
+        UIManager.showDeath()
       }, 300)
     }
   }
@@ -607,6 +611,7 @@ class ExploreManager {
     let forceYStrength = -1
 
     let closeToIsland = false
+    let isNearIsland = false
 
     for (let i = 0; i < this.#islands.islands.length; i++) {
       const { lod, island } = this.#islands.islands[i]
@@ -622,6 +627,10 @@ class ExploreManager {
         }
 
         const dist = getDistance(playerZ, -playerX, -island.initPos.z, -island.initPos.x)
+
+        if (dist < this.islandDist) {
+          isNearIsland = true
+        }
 
         if (lod) {
           let s = this.#islands.LODScale - (dist / this.islandDist - this.showDetailIsland) * this.#islands.LODScale
@@ -671,6 +680,7 @@ class ExploreManager {
     }
 
     this.isCloseToIsland = closeToIsland
+    this.isNearIsland = isNearIsland
 
     if (stopBoat) {
       ControllerManager.stop()

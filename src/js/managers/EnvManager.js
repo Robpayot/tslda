@@ -130,7 +130,7 @@ class EnvManager {
     const shadowColorNode = Fn(() => {
       If(positionWorld.y.lessThan(0), () => Discard())
       const d = depth.add(0.002)
-      return vec4(d, d, d, 1.)
+      return vec4(d, d, d, 1)
     })()
     this.#shadowMaterial = new NodeMaterial()
     this.#shadowMaterial.positionNode = positionLocal
@@ -189,7 +189,7 @@ class EnvManager {
   anim(first) {
     // return
     if (first) {
-      this.#index = 3  // update to debug
+      this.#index = 2 // update to debug
       // Sync full env (ocean, sky, lights) to current index so heightmap, barrels and waves match from frame one
       this.progress = 0
       this.updateEnv(this.#index, this.#index)

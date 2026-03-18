@@ -10,8 +10,6 @@
   opacity: 0;
   visibility: hidden;
 
-  display: none; // TODO: remove this
-
   @include respond-to(smartphone) {
     padding-left: 15px;
     padding-top: 15px;
@@ -300,7 +298,6 @@
       @include respond-to(smartphone) {
         width: 35px;
         margin: 0 0vw -8px;
-
       }
     }
   }
