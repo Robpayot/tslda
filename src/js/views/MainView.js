@@ -54,9 +54,8 @@ export default class MainView {
     EnvManager.init(this.#scene)
     this.#components = this._createComponents()
 
-    // TSL migration: managers disabled — re-enable after conversion
     GridManager.init(this.#scene)
-    // GameManager.init(this.#scene)
+    GameManager.init(this.#scene)
     ExploreManager.init(this.#scene, this.camera)
     EnvManager.setOceanExtend(this.#components.ocean?.meshExtend)
     EnvManager.setToonMaterials()
