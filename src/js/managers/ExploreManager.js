@@ -170,6 +170,7 @@ class ExploreManager {
     this.#lightRings = this._createLightRings()
 
     this.islandDist = 1470 * this.#islands.farRadius
+    this.islandRadius = 800 // approximate island footprint radius in ocean units
     this.showDetailIsland = 0.4
 
     this._initEntities()
@@ -416,6 +417,17 @@ class ExploreManager {
           y = radius * Math.sin(angle)
 
           gridPos = new Vector2(playerX + x, -playerZ + y)
+        }
+      }
+    }
+
+    // Miradors must not spawn inside any island's ocean footprint
+    if (type === 3) {
+      for (let i = 0; i < this.#islands.islands.length; i++) {
+        const { island } = this.#islands.islands[i]
+        if (island) {
+          const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
+          if (dist < this.islandRadius) return
         }
       }
     }
