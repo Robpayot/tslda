@@ -25,6 +25,7 @@ import { BOAT_MODE } from '../components/Boat'
 import { GLOBALS } from '../utils/globals'
 import Lightnings from '../components/Entitites/Lightnings'
 import CinematicManager from './CinematicManager'
+import gsap from 'gsap'
 
 const { clamp, degToRad, randFloat, randInt } = MathUtils
 
@@ -228,6 +229,8 @@ class ExploreManager {
         object.visible = false
         object.canVisible = false
         object.collision = true
+        gsap.killTweensOf(object.position)
+        object.position.y = object.initPos.y
         switch (object.name) {
           case 'rupee':
             this.#rupees.free(object)
@@ -337,6 +340,8 @@ class ExploreManager {
     object.canVisible = false
     object.visible = false
     object.collision = true
+    gsap.killTweensOf(object.position)
+    object.position.y = object.initPos.y
     switch (object.name) {
       case 'rupee':
         this.#rupees.free(object)
@@ -448,6 +453,13 @@ class ExploreManager {
       mesh.canVisible = true
       mesh.visible = true
       mesh.collision = false
+
+      if (mesh.name !== 'mirador') {
+        const targetY = mesh.initPos.y
+        mesh.position.y = targetY - 40
+        gsap.to(mesh.position, { y: targetY, duration: 1.8, ease: 'power2.out' })
+      }
+
       this.#entities.push(mesh)
     }
   }
