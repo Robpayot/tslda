@@ -171,9 +171,9 @@ export default class OrbitCamera {
     }
 
     controls.target = new Vector3(0, 7.5, 2)
-    // controls.maxDistance = 120
-    // controls.minDistance = 20
-    // controls.maxPolarAngle = degToRad(85)
+    controls.maxDistance = 120
+    controls.minDistance = 20
+    controls.maxPolarAngle = degToRad(85)
 
     controls.enablePan = false
 
