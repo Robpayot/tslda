@@ -169,6 +169,12 @@ class EnvManager {
     this.#toonMaterials = this.#toonMaterials.filter((item, index) => this.#toonMaterials.indexOf(item) === index)
   }
 
+  registerToonMaterial(material) {
+    if (!this.#toonMaterials.includes(material)) {
+      this.#toonMaterials.push(material)
+    }
+  }
+
   setOceanExtend(oceanExtend) {
     this.oceanExtend = oceanExtend
   }
