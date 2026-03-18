@@ -107,13 +107,15 @@ export default class ShipGrey {
       mesh.isTargeting = true
       const tl = new gsap.timeline()
 
-      // calculate angle rotation
+      // calculate angle rotation — always take the shortest path
       const rota = Math.atan2(0 - mesh.position.z, 0 + mesh.position.x) % (2 * Math.PI)
-
-      // console.log(mesh.rotation.y, rota + degToRad(-180))
+      const target = rota + degToRad(-180)
+      const current = mesh.rotation.y
+      let delta = target - current
+      delta = ((delta % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI
 
       tl.to(mesh.rotation, {
-        y: rota + degToRad(-180),
+        y: current + delta,
         duration: 1,
       })
 
