@@ -174,12 +174,16 @@ class UIManager {
       }, 1600)
     }
 
-    // check if triforce
-    const localTriforce = localStorage.getItem('triforce')
-    if (localTriforce === 'true') {
-      this._showTriforce(0)
-      this._showTriforce(1)
-      this._showTriforce(2)
+    // check saved triforce shards individually
+    let nbSaved = 0
+    for (let i = 0; i < 3; i++) {
+      if (localStorage.getItem(`triforce-${i}`) === 'true') {
+        this._showTriforce(i)
+        nbSaved++
+      }
+    }
+    this.#nbTriforceFound = nbSaved
+    if (nbSaved === 3) {
       GLOBALS.triforce = true
     }
   }
@@ -432,6 +436,7 @@ class UIManager {
     } else if (ExploreManager.treasureZone.type === LIGHT_RING_TYPE.RUPEE_1) {
       this.treasureEl.children[0].innerHTML = `Congratulations! You've found an Orange Rupee! <img class="icon-rupee" src="/icons/rupee_counter_6.png" alt="" />`
     } else if (ExploreManager.treasureZone.type === LIGHT_RING_TYPE.TRIFORCE) {
+      localStorage.setItem(`triforce-${ExploreManager.treasureZone.triforceNb}`, 'true')
       if (this.#nbTriforceFound === 2) {
         this.treasureEl.children[0].innerHTML = `Congratulations! You've found the last Triforce Shards! You've
         won the Master sword <img class="shield" src="/icons/master_sword.png" alt="" /> and Mirror Shield

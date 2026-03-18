@@ -179,13 +179,11 @@ class ExploreManager {
     this._createDebug()
 
     setTimeout(() => {
-      if (GLOBALS.triforce) {
-        this.#lightRings.avail[0].visible = false
-        this.#lightRings.avail[0].found = true
-        this.#lightRings.avail[1].visible = false
-        this.#lightRings.avail[1].found = true
-        this.#lightRings.avail[2].visible = false
-        this.#lightRings.avail[2].found = true
+      for (let i = 0; i < 3; i++) {
+        if (localStorage.getItem(`triforce-${i}`) === 'true') {
+          this.#lightRings.avail[i].visible = false
+          this.#lightRings.avail[i].found = true
+        }
       }
     }, 200)
   }
