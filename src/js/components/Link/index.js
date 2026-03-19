@@ -184,6 +184,7 @@ export default class Link {
     }
     this.#mouthIndex = 5
     this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
+    this.#mouth.material.uShadowBias.value = EnvManager.settings?.shadowBias ?? this.#settings.shadowBias
   }
 
   _resetTreasureAnimation = () => {
@@ -204,6 +205,7 @@ export default class Link {
     }
     this.#mouthIndex = 0
     this.#mouth.material = createLinkMouthMaterial(arrMouth[this.#mouthIndex], this.#mouth)
+    this.#mouth.material.uShadowBias.value = EnvManager.settings?.shadowBias ?? this.#settings.shadowBias
   }
 
   _createMaterials() {

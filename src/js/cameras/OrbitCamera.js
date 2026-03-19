@@ -127,6 +127,9 @@ export default class OrbitCamera {
 
     this.instance.setRotationFromEuler(settings.rotation)
 
+    // Resync OrbitControls internal spherical state after external position change
+    this.#controls.update()
+
     this.distFromCenter = this.#controls.getDistance()
 
     this.initAngle = Math.atan2(0 - this.instance.position.z, 0 - this.instance.position.x)
