@@ -1,0 +1,38 @@
+.browser-unsupported {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-overlay);
+  z-index: 999999999999;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+
+  &.visible {
+    display: flex;
+  }
+
+  &__content {
+    max-width: 40rem;
+    text-align: center;
+  }
+
+  &__text {
+    color: var(--color-black);
+    margin: 0;
+  }
+
+  &__link {
+    color: inherit;
+    text-decoration: underline;
+    font-weight: bold;
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
