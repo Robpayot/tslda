@@ -29,4 +29,4 @@ export const MODE = {
 }
 
 // export const DEBUG = import.meta.env.MODE === "development"
-export const DEBUG = false
+export const DEBUG = true
