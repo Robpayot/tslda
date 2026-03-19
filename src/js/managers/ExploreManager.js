@@ -102,7 +102,7 @@ class ExploreManager {
   // entities
   #entities = []
   #entityRange = 20000
-  #entityRangeMin = 19000
+  #entityRangeMin = 300
   #rupees
   #barrels
   #barrelRupees
@@ -378,11 +378,6 @@ class ExploreManager {
 
     // get random coordinate from min distance entityRange radius
 
-    // Suppress front spawning when an island is within view distance
-    if (addInFront && this.isNearIsland) {
-      addInFront = false
-    }
-
     let angle = Math.random() * 2 * Math.PI // Random angle in radians
     if (addInFront) {
       const playerDir = -ControllerManager.boat.angleDir + degToRad(-90)
@@ -421,17 +416,6 @@ class ExploreManager {
       }
     }
 
-    // Miradors must not spawn inside any island's ocean footprint
-    if (type === 3) {
-      for (let i = 0; i < this.#islands.islands.length; i++) {
-        const { island } = this.#islands.islands[i]
-        if (island) {
-          const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
-          if (dist < this.islandRadius) return
-        }
-      }
-    }
-
     switch (type) {
       case 0:
         mesh = this.#rupees.getAvail({ mode: MODE.EXPLORE, mat: rupeesMat[randInt(0, rupeesMat.length - 1)], gridPos })
@@ -463,13 +447,6 @@ class ExploreManager {
       mesh.canVisible = true
       mesh.visible = true
       mesh.collision = false
-
-      if (mesh.name !== 'mirador') {
-        const targetY = mesh.initPos.y
-        mesh.position.y = targetY - 40
-        gsap.to(mesh.position, { y: targetY, duration: 1.8, ease: 'power2.out' })
-      }
-
       this.#entities.push(mesh)
     }
   }
