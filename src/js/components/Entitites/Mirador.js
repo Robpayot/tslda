@@ -1,7 +1,7 @@
 import { DynamicDrawUsage, InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
 import { REPEAT_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
+import { createEntityToonMaterial, finalizeInstancedMaterial } from '../../tsl-nodes/entityToon'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
@@ -71,11 +71,13 @@ export default class Mirador {
     const material = createEntityToonMaterial({
       mapTexture: mirador.material.map,
       name: 'mirador',
+      isInstanced: true,
     })
 
     const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'mirador'
     iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    finalizeInstancedMaterial(material, iMesh)
 
     // Hide every slot initially by placing the dummy far below the scene
     const hideDummy = new Object3D()
