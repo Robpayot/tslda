@@ -101,7 +101,7 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
-  #entityRange = 20000
+  #entityRange = 1000
   #entityRangeMin = 300
   #rupees
   #barrels
@@ -276,9 +276,11 @@ class ExploreManager {
   _createBarrels() {
     const barrels = new Barrels(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = barrels.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMeshes are added to scene inside the Barrels constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < barrels.capacity; i++) {
+      barrels.add(0, 0)
     }
 
     return barrels
