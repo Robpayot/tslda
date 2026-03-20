@@ -13,7 +13,7 @@ import {
   Fn,
   uniform,
   varying,
-  varyingProperty,
+  attribute,
   float,
   vec2,
   vec3,
@@ -122,7 +122,7 @@ export function createEntityToonMaterial(options = {}) {
 const customColorNode = (mapTexture, uTintColor, shadingNode, useInstanceColor) =>
   Fn(() => {
     let baseColor
-    if (useInstanceColor) baseColor = varyingProperty('vec3', 'vInstanceColor')
+    if (useInstanceColor) baseColor = attribute('iColor', 'vec4').rgb
     else if (mapTexture) baseColor = texture(mapTexture, uv()).rgb
     else baseColor = uTintColor.rgb
     const finalShading = shadingNode()

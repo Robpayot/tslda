@@ -1,4 +1,4 @@
-import { Color, InstancedMesh, MathUtils, Matrix4, Object3D } from 'three'
+import { Color, InstancedBufferAttribute, InstancedMesh, MathUtils, Matrix4, Object3D } from 'three'
 import { StorageInstancedBufferAttribute } from 'three/webgpu'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
@@ -24,6 +24,8 @@ export default class Rupees {
   #avail = []
   #mesh // non-EXPLORE: template mesh for clone-based pool
   #iMesh // EXPLORE: single InstancedMesh
+  #iColorArray = null // Float32Array backing the per-instance color attribute
+  #iColorAttr = null // InstancedBufferAttribute (vec4, 16-byte stride) on the geometry
   #hitbox = 10
   #baseY
   #scale
@@ -125,6 +127,20 @@ export default class Rupees {
       isInstanced: true,
     })
 
+    // Per-instance color as vec4 InstancedBufferAttribute (16-byte stride = naturally WGSL-aligned).
+    // Bypasses InstanceNode's instanceColor entirely; read in shader via attribute('iColor', 'vec4').rgb.
+    const iColorArray = new Float32Array(this.#capacity * 4)
+    const iColorAttr = new InstancedBufferAttribute(iColorArray, 4)
+    const c0 = RUPEE_COLORS[0]
+    for (let i = 0; i < this.#capacity; i++) {
+      iColorArray[i * 4] = c0.r
+      iColorArray[i * 4 + 1] = c0.g
+      iColorArray[i * 4 + 2] = c0.b
+    }
+    geo.setAttribute('iColor', iColorAttr)
+    this.#iColorArray = iColorArray
+    this.#iColorAttr = iColorAttr
+
     const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'rupee'
     iMesh.instanceMatrix = new StorageInstancedBufferAttribute(iMesh.instanceMatrix.array, 16)
@@ -135,10 +151,8 @@ export default class Rupees {
     hideDummy.updateMatrix()
     for (let i = 0; i < this.#capacity; i++) {
       iMesh.setMatrixAt(i, hideDummy.matrix)
-      iMesh.setColorAt(i, RUPEE_COLORS[0])
     }
     iMesh.instanceMatrix.needsUpdate = true
-    iMesh.instanceColor.needsUpdate = true
 
     scene.add(iMesh)
     return iMesh
@@ -147,6 +161,8 @@ export default class Rupees {
   _createAbstract(instanceId) {
     const iMesh = this.#iMesh
     const baseY = this.#baseY
+    const iColorArray = this.#iColorArray
+    const iColorAttr = this.#iColorAttr
     const dummy = new Object3D()
     dummy.position.set(0, -9999, 0)
     dummy.updateMatrix()
@@ -173,8 +189,11 @@ export default class Rupees {
         iMesh.instanceMatrix.needsUpdate = true
       },
       _setColor(color) {
-        iMesh.setColorAt(instanceId, color)
-        if (iMesh.instanceColor) iMesh.instanceColor.needsUpdate = true
+        const off = instanceId * 4
+        iColorArray[off] = color.r
+        iColorArray[off + 1] = color.g
+        iColorArray[off + 2] = color.b
+        iColorAttr.needsUpdate = true
       },
     }
   }
