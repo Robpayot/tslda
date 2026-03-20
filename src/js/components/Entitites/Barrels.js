@@ -9,6 +9,8 @@ import { MODE } from '../../utils/constants'
 
 // y-offset matching the non-EXPLORE barrelGroup.position.y used in _createMeshMat
 const BASE_Y = -11
+// EXPLORE placement offset: negative = more submerged, positive = higher above water
+const EXPLORE_BASE_Y = -3
 
 export default class Barrels {
   #material
@@ -93,9 +95,14 @@ export default class Barrels {
     const s = this.#scale
 
     const child1 = barrelGroup.children[0]
-    const geo1 = this._cleanGeo(child1, s)
-    geo1.computeBoundingBox()
-    console.log('[Barrels] geo1 vertices:', geo1.attributes.position.count, 'bbox Y:', geo1.boundingBox.min.y.toFixed(2), '→', geo1.boundingBox.max.y.toFixed(2))
+    const geo1 = this._cleanGeo(child1, barrelGroup, s)
+    const child2 = barrelGroup.children[1]
+    const geo2 = this._cleanGeo(child2, barrelGroup, s)
+
+    // Center both sub-meshes at y=0 using the combined bounding box so neither
+    // floats above the waterline nor sinks below it independently.
+    this._centerGeosY(geo1, geo2)
+
     const mat1 = createEntityToonMaterial({
       mapTexture: child1.material.map,
       heightMapTexture: OceanHeightMap.heightMap?.texture,
@@ -105,8 +112,6 @@ export default class Barrels {
     })
     this.#iMesh1 = this._buildInstancedMesh(geo1, mat1, scene)
 
-    const child2 = barrelGroup.children[1]
-    const geo2 = this._cleanGeo(child2, s)
     const mat2 = createEntityToonMaterial({
       mapTexture: child2.material.map,
       heightMapTexture: OceanHeightMap.heightMap?.texture,
@@ -119,19 +124,34 @@ export default class Barrels {
     this.#materials = [mat1, mat2]
   }
 
-  // Builds a minimal geometry (position + uv only, normals computed) from a skinned child mesh.
-  // Only bakes group scale — child.matrix is intentionally skipped to match the ShipGrey/Rupees
-  // pattern (get-mesh-directly → scale only). Avoids any GLTF rig transform surprises.
-  _cleanGeo(child, s) {
+  // Builds a raw geometry (position + uv + index, transforms baked) without normals.
+  // Caller must call _centerGeosY then computeVertexNormals + computeBoundingSphere.
+  _cleanGeo(child, barrelGroup, s) {
     const src = child.geometry
     const geo = new BufferGeometry()
     geo.setAttribute('position', src.attributes.position.clone())
     if (src.attributes.uv) geo.setAttribute('uv', src.attributes.uv.clone())
     if (src.index) geo.setIndex(src.index.clone())
-    geo.applyMatrix4(new Matrix4().makeScale(s, s, s))
-    geo.computeVertexNormals()
-    geo.computeBoundingSphere()
+    const rotMatrix = new Matrix4().makeRotationFromEuler(barrelGroup.rotation)
+    geo.applyMatrix4(new Matrix4().makeScale(s, s, s).multiply(rotMatrix).multiply(child.matrix))
     return geo
+  }
+
+  // Translates both geometries by the same Y offset so their combined bounding
+  // box is centered at y=0, then finalises normals and bounding sphere.
+  _centerGeosY(geo1, geo2) {
+    geo1.computeBoundingBox()
+    geo2.computeBoundingBox()
+    const centerY =
+      (Math.min(geo1.boundingBox.min.y, geo2.boundingBox.min.y) +
+        Math.max(geo1.boundingBox.max.y, geo2.boundingBox.max.y)) /
+      2
+    geo1.translate(0, -centerY, 0)
+    geo2.translate(0, -centerY, 0)
+    geo1.computeVertexNormals()
+    geo1.computeBoundingSphere()
+    geo2.computeVertexNormals()
+    geo2.computeBoundingSphere()
   }
 
   _buildInstancedMesh(geo, material, scene) {
@@ -169,7 +189,7 @@ export default class Barrels {
       get rotation() {
         return dummy.rotation
       },
-      initPos: { x: 0, y: 0, z: 0 },
+      initPos: { x: 0, y: EXPLORE_BASE_Y, z: 0 },
       visible: false,
       canVisible: false,
       collision: false,
@@ -213,10 +233,10 @@ export default class Barrels {
       const abstract = this.#avail[0]
       if (!abstract) return null
 
-      abstract.dummy.position.set(gridPos.x, 0, gridPos.y)
+      abstract.dummy.position.set(gridPos.x, EXPLORE_BASE_Y, gridPos.y)
       abstract.dummy.rotation.y = randInt(-Math.PI, Math.PI)
       abstract.initPos.x = gridPos.x
-      abstract.initPos.y = 0
+      abstract.initPos.y = EXPLORE_BASE_Y
       abstract.initPos.z = gridPos.y
       abstract._syncMatrix()
 
