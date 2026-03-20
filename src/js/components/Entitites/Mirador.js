@@ -1,4 +1,5 @@
-import { DynamicDrawUsage, InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
+import { InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
+import { StorageInstancedBufferAttribute } from 'three/webgpu'
 import { REPEAT_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
 import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
@@ -14,7 +15,7 @@ export default class Mirador {
   #hitbox = 16
   #scale = 0.2
   #mode
-  #capacity = 10000
+  #capacity = 500
 
   constructor(scene, mode) {
     this.#mode = mode
@@ -76,7 +77,8 @@ export default class Mirador {
 
     const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'mirador'
-    iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    iMesh.instanceMatrix = new StorageInstancedBufferAttribute(iMesh.instanceMatrix.array, 16)
+    iMesh.frustumCulled = false
 
     // Hide every slot initially by placing the dummy far below the scene
     const hideDummy = new Object3D()

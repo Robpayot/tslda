@@ -13,6 +13,7 @@ import {
   Fn,
   uniform,
   varying,
+  varyingProperty,
   float,
   vec2,
   vec3,
@@ -24,39 +25,13 @@ import {
   modelWorldMatrix,
   modelWorldMatrixInverse,
   transformNormalToView,
-  instanceIndex,
-  buffer,
   mat3,
-  mat4,
-  instancedDynamicBufferAttribute,
-  instancedBufferAttribute,
+  storage,
+  instanceIndex,
 } from 'three/tsl'
-import { Color, Vector3, InstancedInterleavedBuffer, DynamicDrawUsage } from 'three'
+import { Color, Vector3 } from 'three'
 import EnvManager from '../managers/EnvManager'
 import { buildToonShadingNode } from './toon'
-
-// ---------------------------------------------------------------------------
-// InstancedMesh helpers (ported from mcdonal-runner/src/3d/tsl/utils.js)
-// ---------------------------------------------------------------------------
-
-/**
- * Returns a TSL mat4 node for the current instance's matrix, read from instanceMatrix.
- * For count > 1000 we use interleaved buffer attributes because UBO max is ~64 KB.
- */
-function getInstanceMatrixNode(mesh) {
-  const attr = mesh.instanceMatrix
-  if (mesh.count <= 1000) {
-    return buffer(attr.array, 'mat4', mesh.count).element(instanceIndex)
-  }
-  const interleavedBuf = new InstancedInterleavedBuffer(attr.array, 16, 1)
-  const bufferFn = attr.usage === DynamicDrawUsage ? instancedDynamicBufferAttribute : instancedBufferAttribute
-  return mat4(
-    bufferFn(interleavedBuf, 'vec4', 16, 0),
-    bufferFn(interleavedBuf, 'vec4', 16, 4),
-    bufferFn(interleavedBuf, 'vec4', 16, 8),
-    bufferFn(interleavedBuf, 'vec4', 16, 12)
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Main material factory
@@ -84,6 +59,7 @@ export function createEntityToonMaterial(options = {}) {
   const {
     mapTexture = null,
     tintColor = null,
+    useInstanceColor = false,
     heightMapTexture = null,
     scaleOcean = 3000,
     smoothstepMax = 0.5,
@@ -92,8 +68,8 @@ export function createEntityToonMaterial(options = {}) {
     isInstanced = false,
   } = options
 
-  if (!mapTexture && !tintColor) {
-    throw new Error('entityToon: provide mapTexture or tintColor')
+  if (!mapTexture && !tintColor && !useInstanceColor) {
+    throw new Error('entityToon: provide mapTexture, tintColor, or useInstanceColor')
   }
 
   // vNormalLocal is assigned in the vertex shader (positionNode or vertexNode) and consumed
@@ -128,7 +104,7 @@ export function createEntityToonMaterial(options = {}) {
 
   // nodes
 
-  material.colorNode = customColorNode(mapTexture, uTintColor, shadingNode)
+  material.colorNode = customColorNode(mapTexture, uTintColor, shadingNode, useInstanceColor)
   material.normalNode = normalViewNode
 
   if (isInstanced) {
@@ -143,9 +119,12 @@ export function createEntityToonMaterial(options = {}) {
   return material
 }
 
-const customColorNode = (mapTexture, uTintColor, shadingNode) =>
+const customColorNode = (mapTexture, uTintColor, shadingNode, useInstanceColor) =>
   Fn(() => {
-    const baseColor = mapTexture ? texture(mapTexture, uv()).rgb : uTintColor.rgb
+    let baseColor
+    if (useInstanceColor) baseColor = varyingProperty('vec3', 'vInstanceColor')
+    else if (mapTexture) baseColor = texture(mapTexture, uv()).rgb
+    else baseColor = uTintColor.rgb
     const finalShading = shadingNode()
     return vec4(baseColor.mul(finalShading), 1.0)
   })()
@@ -174,7 +153,7 @@ const customPositionNode = (heightMapTexture, uScaleOcean, vNormalLocal) =>
 
 const customInstancedPositionNode = (heightMapTexture, uScaleOcean, vNormalLocal) =>
   Fn((builder) => {
-    const instanceMatrixNode = getInstanceMatrixNode(builder.object)
+    const instanceMatrixNode = storage(builder.object.instanceMatrix, 'mat4', Math.max(builder.object.count, 1)).element(instanceIndex)
 
     if (builder.hasGeometryAttribute('normal')) {
       const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)

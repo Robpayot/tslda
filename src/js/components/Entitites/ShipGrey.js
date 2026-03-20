@@ -1,4 +1,5 @@
-import { DynamicDrawUsage, InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
+import { InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
+import { StorageInstancedBufferAttribute } from 'three/webgpu'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
@@ -14,7 +15,7 @@ export default class ShipGrey {
   #hitbox = 35
   #hitboxTarget = 400
   #mode
-  #capacity = 10000
+  #capacity = 500
 
   constructor(scene, mode) {
     this.#mode = mode
@@ -89,7 +90,8 @@ export default class ShipGrey {
 
     const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'ship_grey'
-    iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    iMesh.instanceMatrix = new StorageInstancedBufferAttribute(iMesh.instanceMatrix.array, 16)
+    iMesh.frustumCulled = false
 
     const hideDummy = new Object3D()
     hideDummy.position.set(0, -9999, 0)

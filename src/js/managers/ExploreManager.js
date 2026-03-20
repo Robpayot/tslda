@@ -263,9 +263,11 @@ class ExploreManager {
   _createRupees() {
     const rupees = new Rupees(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = rupees.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMesh is added to scene inside the Rupees constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < rupees.capacity; i++) {
+      rupees.add(0, 0)
     }
 
     return rupees
