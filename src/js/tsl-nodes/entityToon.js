@@ -26,6 +26,7 @@ import {
   transformNormalToView,
   instanceIndex,
   buffer,
+  mat3,
   mat4,
   instancedDynamicBufferAttribute,
   instancedBufferAttribute,
@@ -53,10 +54,9 @@ function getInstanceMatrixNode(mesh) {
     bufferFn(interleavedBuf, 'vec4', 16, 0),
     bufferFn(interleavedBuf, 'vec4', 16, 4),
     bufferFn(interleavedBuf, 'vec4', 16, 8),
-    bufferFn(interleavedBuf, 'vec4', 16, 12),
+    bufferFn(interleavedBuf, 'vec4', 16, 12)
   )
 }
-
 
 // ---------------------------------------------------------------------------
 // Main material factory
@@ -126,10 +126,7 @@ export function createEntityToonMaterial(options = {}) {
       const positionNodeFn = Fn(() => {
         vNormalLocal.assign(normalLocal)
         const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
-        const uvGrid = vec2(
-          float(0.5).add(wCenter.x.div(uScaleOcean)),
-          float(0.5).add(wCenter.z.div(uScaleOcean))
-        )
+        const uvGrid = vec2(float(0.5).add(wCenter.x.div(uScaleOcean)), float(0.5).add(wCenter.z.div(uScaleOcean)))
         const off = float(0.01)
         const hmC = texture(heightMapTexture, uvGrid)
         const hm1A = texture(heightMapTexture, vec2(uvGrid.x.add(off), uvGrid.y))
@@ -154,9 +151,7 @@ export function createEntityToonMaterial(options = {}) {
   // isInstanced: positionNode stays null; vertexNode is set via finalizeInstancedMaterial.
 
   const colorFn = Fn(() => {
-    const baseColor = mapTexture
-      ? texture(mapTexture, uv()).rgb
-      : uTintColor.rgb
+    const baseColor = mapTexture ? texture(mapTexture, uv()).rgb : uTintColor.rgb
     const finalShading = shadingNode()
     return vec4(baseColor.mul(finalShading), 1.0)
   })
@@ -196,12 +191,13 @@ export function createEntityToonMaterial(options = {}) {
 export function finalizeInstancedMaterial(material, mesh) {
   const { vNormalLocal, heightMapTexture, uScaleOcean } = material._instancedSetup
 
-  if (heightMapTexture) {
-    // positionLocal and normalLocal are already instance-transformed by Three.js InstanceNode.
-    // Read the instance matrix only to compute the per-instance world center for heightmap UV.
-    material.positionNode = Fn(() => {
-      const instanceMatrixNode = getInstanceMatrixNode(mesh)
+  // positionLocal and normalLocal are already instance-transformed by Three.js InstanceNode.
+  // Read the instance matrix only to compute the per-instance world center for heightmap UV.
+  material.positionNode = Fn((builder) => {
+    const instanceMatrixNode = getInstanceMatrixNode(mesh)
 
+    const disp = float(0.0).toVar()
+    if (heightMapTexture) {
       // Instance origin in world space: column 3 of the instance matrix = translation
       const instanceOrigin = instanceMatrixNode.mul(vec4(0.0, 0.0, 0.0, 1.0))
       const worldCenter = modelWorldMatrix.mul(instanceOrigin)
@@ -216,22 +212,33 @@ export function finalizeInstancedMaterial(material, mesh) {
       const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
       const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
       const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
-      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+      disp.assign(avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0)))
+    }
 
-      // normalLocal is already instance-rotated; pass it to the fragment varying
+    // normalLocal is already instance-rotated; pass it to the fragment varying
+    if (builder.hasGeometryAttribute('normal')) {
+      const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)
+      // ASSIGNS
+      normalLocal.assign(instanceNormal)
       vNormalLocal.assign(normalLocal)
+    }
 
-      // Add world-Y displacement to the already-instance-transformed vertex position
-      const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
-      const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
-      return positionLocal.add(localDisp.xyz)
-    })()
-  } else {
-    // positionLocal and normalLocal are already instance-transformed by Three.js InstanceNode.
-    // Just pass the normal through to the fragment stage; position needs no extra work.
-    material.positionNode = Fn(() => {
-      vNormalLocal.assign(normalLocal)
+    if (!heightMapTexture) {
       return positionLocal
-    })()
-  }
+    }
+
+    // Add world-Y displacement to the already-instance-transformed vertex position
+    const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
+    const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+    return positionLocal.add(localDisp.xyz)
+  })()
 }
+
+// From Threejs
+export const transformNormal = /*@__PURE__*/ Fn(([normal, matrix = modelWorldMatrix]) => {
+  const m = mat3(matrix)
+
+  const transformedNormal = normal.div(vec3(m[0].dot(m[0]), m[1].dot(m[1]), m[2].dot(m[2])))
+
+  return m.mul(transformedNormal).xyz
+})
