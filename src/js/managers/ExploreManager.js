@@ -299,7 +299,7 @@ class ExploreManager {
     // InstancedMesh is added to scene inside the Mirador constructor.
     // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
     // so we must NOT pass them to this.#parent.add().
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < miradors.capacity; i++) {
       miradors.add(0, 0)
     }
 
@@ -309,9 +309,10 @@ class ExploreManager {
   _createShipsGrey() {
     const ships = new ShipGrey(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = ships.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMesh is added to scene inside the ShipGrey constructor.
+    // add() builds the abstract pool — don't pass abstracts to this.#parent.add().
+    for (let i = 0; i < ships.capacity; i++) {
+      ships.add(0, 0)
     }
 
     return ships

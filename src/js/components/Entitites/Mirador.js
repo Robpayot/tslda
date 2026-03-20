@@ -5,7 +5,6 @@ import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
-const CAPACITY = 10000
 const INIT_Y = -30 // miradors sit below the ocean surface
 
 export default class Mirador {
@@ -15,6 +14,7 @@ export default class Mirador {
   #hitbox = 16
   #scale = 0.2
   #mode
+  #capacity = 10000
 
   constructor(scene, mode) {
     this.#mode = mode
@@ -29,6 +29,9 @@ export default class Mirador {
 
   get mesh() {
     return this.#mode === MODE.EXPLORE ? this.#iMesh : this.#mesh
+  }
+  get capacity() {
+    return this.#capacity
   }
 
   set avail(val) {
@@ -70,7 +73,7 @@ export default class Mirador {
       name: 'mirador',
     })
 
-    const iMesh = new InstancedMesh(geo, material, CAPACITY)
+    const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'mirador'
     iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
 
@@ -78,7 +81,7 @@ export default class Mirador {
     const hideDummy = new Object3D()
     hideDummy.position.set(0, -9999, 0)
     hideDummy.updateMatrix()
-    for (let i = 0; i < CAPACITY; i++) {
+    for (let i = 0; i < this.#capacity; i++) {
       iMesh.setMatrixAt(i, hideDummy.matrix)
     }
     iMesh.instanceMatrix.needsUpdate = true

@@ -1,30 +1,41 @@
+import { DynamicDrawUsage, InstancedMesh, Matrix4, MathUtils, Object3D } from 'three'
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
 import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
-import { MathUtils } from 'three'
 const { degToRad, randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 import gsap from 'gsap'
 
 export default class ShipGrey {
   #avail = []
-  #mesh
+  #mesh // non-EXPLORE: template mesh for clone-based pool
+  #iMesh // EXPLORE: single InstancedMesh for all ships
   #hitbox = 35
   #hitboxTarget = 400
-  constructor(scene, mode) {
-    this.mode = mode
-    this.#mesh = this._createMeshMat()
+  #mode
+  #capacity = 10000
 
-    if (this.mode === MODE.GAME) {
+  constructor(scene, mode) {
+    this.#mode = mode
+
+    if (mode === MODE.GAME) {
       this.#hitbox = 16
     }
 
-    // scene.add(this.#mesh)
+    if (mode === MODE.EXPLORE) {
+      this.#iMesh = this._createInstancedMesh(scene)
+    } else {
+      this.#mesh = this._createMeshMat()
+    }
   }
 
   get mesh() {
-    return this.#mesh
+    return this.#mode === MODE.EXPLORE ? this.#iMesh : this.#mesh
+  }
+
+  get capacity() {
+    return this.#capacity
   }
 
   set avail(val) {
@@ -36,13 +47,12 @@ export default class ShipGrey {
     const shipGroup = gltf.scene.getObjectByName('ship_grey').clone()
 
     let s = 0.2
-    if (this.mode === MODE.GAME) {
+    if (this.#mode === MODE.GAME) {
       s = 0.18
       shipGroup.rotation.y = degToRad(-90)
     }
 
     shipGroup.scale.set(s, s, s)
-    // shipGroup.position.y = -11
     shipGroup.name = 'ship_grey'
 
     shipGroup.material = createEntityToonMaterial({
@@ -53,11 +63,76 @@ export default class ShipGrey {
     })
 
     shipGroup.geometry.computeVertexNormals()
-
     shipGroup.visible = false
     shipGroup.canVisible = false
 
     return shipGroup
+  }
+
+  _createInstancedMesh(scene) {
+    const gltf = LoaderManager.get('ship_grey').gltf
+    const shipGroup = gltf.scene.getObjectByName('ship_grey').clone()
+
+    // Bake scale into geometry so instance world-space positions aren't affected
+    // (iMesh.matrixWorld * instanceMatrix * vertex — scale on iMesh would also scale positions)
+    const geo = shipGroup.geometry.clone()
+    geo.applyMatrix4(new Matrix4().makeScale(0.2, 0.2, 0.2))
+    geo.computeVertexNormals()
+
+    const material = createEntityToonMaterial({
+      mapTexture: shipGroup.material.map,
+      name: 'ship_grey',
+    })
+
+    const iMesh = new InstancedMesh(geo, material, this.#capacity)
+    iMesh.name = 'ship_grey'
+    iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+
+    const hideDummy = new Object3D()
+    hideDummy.position.set(0, -9999, 0)
+    hideDummy.updateMatrix()
+    for (let i = 0; i < this.#capacity; i++) {
+      iMesh.setMatrixAt(i, hideDummy.matrix)
+    }
+    iMesh.instanceMatrix.needsUpdate = true
+
+    scene.add(iMesh)
+    return iMesh
+  }
+
+  // abstract.position / abstract.rotation return dummy's Vector3 / Euler directly,
+  // so ExploreManager's `object.position.x = ...` and GSAP tweens on `mesh.rotation`
+  // both mutate the dummy in-place. _syncMatrix() pushes the updated transform to the mesh.
+  _createAbstract(instanceId) {
+    const iMesh = this.#iMesh
+    const dummy = new Object3D()
+    dummy.position.set(0, -9999, 0)
+    dummy.updateMatrix()
+
+    const abstract = {
+      dummy,
+      instanceId,
+      name: 'ship_grey',
+      get position() {
+        return dummy.position
+      },
+      get rotation() {
+        return dummy.rotation
+      },
+      initPos: { x: 0, y: 0, z: 0 },
+      visible: false,
+      canVisible: false,
+      collision: false,
+      hitbox: this.#hitbox,
+      hitboxTarget: this.#hitboxTarget,
+      isTargeting: false,
+      _syncMatrix() {
+        dummy.updateMatrix()
+        iMesh.setMatrixAt(instanceId, dummy.matrix)
+        iMesh.instanceMatrix.needsUpdate = true
+      },
+    }
+    return abstract
   }
 
   add(rangeX, rangeXMarge, zIncr) {
@@ -65,41 +140,63 @@ export default class ShipGrey {
     this.rangeXMarge = rangeXMarge
     this.zIncr = zIncr
 
+    if (this.#mode === MODE.EXPLORE) {
+      const instanceId = this.#avail.length
+      const abstract = this._createAbstract(instanceId)
+      this.#avail.push(abstract)
+      return abstract
+    }
+
+    // non-EXPLORE: clone-based (unchanged)
     const mesh = this.#mesh.clone()
     mesh.hitbox = this.#hitbox
     mesh.hitboxTarget = this.#hitboxTarget
-
     this.#avail.push(mesh)
-
     return mesh
   }
 
   getAvail({ i, z, slotX, mode, gridPos }) {
-    const mesh = this.#avail[0]
-
-    if (!mesh) return null
-
     if (mode === MODE.EXPLORE) {
-      mesh.position.x = gridPos.x
-      mesh.position.z = gridPos.y
-      mesh.rotation.y = randInt(-Math.PI, Math.PI)
-    } else {
-      const posXChoice = [(-this.rangeX * REPEAT_OCEAN) / 2.5, 0, (this.rangeX * REPEAT_OCEAN) / 2.5]
-      mesh.slotX = slotX || randInt(0, 2)
+      const abstract = this.#avail[0]
+      if (!abstract) return null
 
-      mesh.position.x = posXChoice[mesh.slotX]
-      mesh.position.z = z || -i * this.zIncr - this.zIncr
+      abstract.dummy.position.set(gridPos.x, 0, gridPos.y)
+      abstract.initPos.x = gridPos.x
+      abstract.initPos.y = 0
+      abstract.initPos.z = gridPos.y
+      abstract.dummy.rotation.y = randInt(-Math.PI, Math.PI)
+      abstract.isTargeting = false
+      abstract._syncMatrix()
+
+      this.#avail.shift()
+      return abstract
     }
 
-    mesh.initPos = mesh.position.clone()
-    // remove from array
-    this.#avail.shift()
+    // non-EXPLORE: clone-based (unchanged)
+    const mesh = this.#avail[0]
+    if (!mesh) return null
 
+    const posXChoice = [(-this.rangeX * REPEAT_OCEAN) / 2.5, 0, (this.rangeX * REPEAT_OCEAN) / 2.5]
+    mesh.slotX = slotX || randInt(0, 2)
+    mesh.position.x = posXChoice[mesh.slotX]
+    mesh.position.z = z || -i * this.zIncr - this.zIncr
+    mesh.initPos = mesh.position.clone()
+    this.#avail.shift()
     return mesh
   }
 
-  free(mesh) {
-    this.#avail.push(mesh)
+  free(abstract) {
+    if (this.#mode === MODE.EXPLORE) {
+      // Kill targetPlayer tweens (they run on initPos and rotation, not position)
+      gsap.killTweensOf(abstract.initPos)
+      gsap.killTweensOf(abstract.dummy.rotation)
+      abstract.isTargeting = false
+      abstract.dummy.position.set(0, -9999, 0)
+      abstract._syncMatrix()
+      this.#avail.push(abstract)
+      return
+    }
+    this.#avail.push(abstract)
   }
 
   targetPlayer(mesh, playerX, playerZ) {
@@ -107,12 +204,13 @@ export default class ShipGrey {
       mesh.isTargeting = true
       const tl = new gsap.timeline()
 
-      // calculate angle rotation — always take the shortest path
+      // mesh.position = dummy.position, mesh.rotation = dummy.rotation
+      // Both are live references so GSAP tweens them in-place; _syncMatrix picks up changes each frame
       const rota = Math.atan2(0 - mesh.position.z, 0 + mesh.position.x) % (2 * Math.PI)
       const target = rota + degToRad(-180)
       const current = mesh.rotation.y
       let delta = target - current
-      delta = ((delta % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI
+      delta = (((delta % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
 
       tl.to(mesh.rotation, {
         y: current + delta,
