@@ -5,7 +5,7 @@ import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 const { randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 
-const CAPACITY = 6
+const CAPACITY = 10000
 const INIT_Y = -30 // miradors sit below the ocean surface
 
 export default class Mirador {

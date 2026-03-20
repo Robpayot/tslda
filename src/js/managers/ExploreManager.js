@@ -57,7 +57,7 @@ const pointInPolygon = function (polygon, point) {
 // 3: Mirador
 // 4: Grey ship
 
-const NB_ENTITIES = 45
+const NB_ENTITIES = 10000
 const NB_WINDS = 3
 
 const LIGHT_RINGS_DATA = [
@@ -101,8 +101,8 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
-  #entityRange = 1400
-  #entityRangeMin = 1300
+  #entityRange = 20000
+  #entityRangeMin = 300
   #rupees
   #barrels
   #barrelRupees
@@ -299,7 +299,7 @@ class ExploreManager {
     // InstancedMesh is added to scene inside the Mirador constructor.
     // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
     // so we must NOT pass them to this.#parent.add().
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10000; i++) {
       miradors.add(0, 0)
     }
 
