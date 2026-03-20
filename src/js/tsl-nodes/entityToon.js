@@ -96,17 +96,17 @@ export function createEntityToonMaterial(options = {}) {
     throw new Error('entityToon: provide mapTexture or tintColor')
   }
 
+  // vNormalLocal is assigned in the vertex shader (positionNode or vertexNode) and consumed
+  // in normalNode. Same pattern as Items.js in mcdonal-runner.
+  const vNormalLocal = varying(vec3(0, 1, 0), `vNormalLocal_${name}`)
+  const normalViewNode = transformNormalToView(vNormalLocal)
+
   const uScaleOcean = uniform(scaleOcean)
   const uSunDir = uniform(EnvManager.sunDir?.position ?? new Vector3(0, 10, 0))
   const uAmbientColor = uniform(EnvManager.ambientLight?.color ?? new Color(0xffffff))
   const uCoefShadow = uniform(EnvManager.settings?.coefShadow ?? 1)
   const uSRGBSpace = uniform(0)
   const uTintColor = tintColor ? uniform(tintColor) : null
-
-  // vNormalLocal is assigned in the vertex shader (positionNode or vertexNode) and consumed
-  // in normalNode. Same pattern as Items.js in mcdonal-runner.
-  const vNormalLocal = varying(vec3(0, 1, 0), `vNormalLocal_${name}`)
-  const normalViewNode = transformNormalToView(vNormalLocal)
 
   const shadingNode = buildToonShadingNode({
     uSunDir,
@@ -118,93 +118,90 @@ export function createEntityToonMaterial(options = {}) {
     normalViewNode,
   })
 
-  let positionNode = null
-
-  if (!isInstanced) {
-    // Standard Mesh / SkinnedMesh path: positionNode assigns vNormalLocal then returns position.
-    if (heightMapTexture) {
-      const positionNodeFn = Fn(() => {
-        vNormalLocal.assign(normalLocal)
-        const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
-        const uvGrid = vec2(float(0.5).add(wCenter.x.div(uScaleOcean)), float(0.5).add(wCenter.z.div(uScaleOcean)))
-        const off = float(0.01)
-        const hmC = texture(heightMapTexture, uvGrid)
-        const hm1A = texture(heightMapTexture, vec2(uvGrid.x.add(off), uvGrid.y))
-        const hm1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(off)))
-        const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
-        const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
-        const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
-        const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
-        const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
-        const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
-        return positionLocal.add(localDisp.xyz)
-      })
-      positionNode = positionNodeFn()
-    } else {
-      const positionNodeFn = Fn(() => {
-        vNormalLocal.assign(normalLocal)
-        return positionLocal
-      })
-      positionNode = positionNodeFn()
-    }
-  }
-  // isInstanced: positionNode stays null; vertexNode is set via finalizeInstancedMaterial.
-
-  const colorFn = Fn(() => {
-    const baseColor = mapTexture ? texture(mapTexture, uv()).rgb : uTintColor.rgb
-    const finalShading = shadingNode()
-    return vec4(baseColor.mul(finalShading), 1.0)
-  })
-
   const material = new NodeMaterial()
   material.name = name
-  if (positionNode) material.positionNode = positionNode
-  material.normalNode = normalViewNode
-  material.colorNode = colorFn()
   material.uScaleOcean = uScaleOcean
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow
   if (uTintColor) material.uTintColor = uTintColor
 
+  // nodes
+
+  material.colorNode = customColorNode(mapTexture, uTintColor, shadingNode)
+  material.normalNode = normalViewNode
+
   if (isInstanced) {
     // positionNode uses builder.object at shader compile time — no separate finalize call needed.
     // In the positionNode sub-build context, normalLocal is the raw geometry normal (InstanceNode's
     // transform is not visible there), so we manually apply the instance matrix to it here.
-    material.positionNode = Fn((builder) => {
-      const instanceMatrixNode = getInstanceMatrixNode(builder.object)
-
-      if (builder.hasGeometryAttribute('normal')) {
-        const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)
-        normalLocal.assign(instanceNormal)
-        vNormalLocal.assign(normalLocal)
-      }
-
-      if (!heightMapTexture) return positionLocal
-
-      // Instance origin in world space for heightmap UV sampling
-      const instanceOrigin = instanceMatrixNode.mul(vec4(0.0, 0.0, 0.0, 1.0))
-      const worldCenter = modelWorldMatrix.mul(instanceOrigin)
-      const uvGrid = vec2(
-        float(0.5).add(worldCenter.x.div(uScaleOcean)),
-        float(0.5).add(worldCenter.z.div(uScaleOcean))
-      )
-      const off = float(0.01)
-      const hmC = texture(heightMapTexture, uvGrid)
-      const hm1A = texture(heightMapTexture, vec2(uvGrid.x.add(off), uvGrid.y))
-      const hm1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(off)))
-      const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
-      const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
-      const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
-      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
-      const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
-      const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
-      return positionLocal.add(localDisp.xyz)
-    })()
+    material.positionNode = customInstancedPositionNode(heightMapTexture, uScaleOcean, vNormalLocal)
+  } else {
+    material.positionNode = customPositionNode(heightMapTexture, uScaleOcean, vNormalLocal)
   }
 
   return material
 }
+
+const customColorNode = (mapTexture, uTintColor, shadingNode) =>
+  Fn(() => {
+    const baseColor = mapTexture ? texture(mapTexture, uv()).rgb : uTintColor.rgb
+    const finalShading = shadingNode()
+    return vec4(baseColor.mul(finalShading), 1.0)
+  })()
+
+const customPositionNode = (heightMapTexture, uScaleOcean, vNormalLocal) =>
+  Fn(() => {
+    vNormalLocal.assign(normalLocal)
+
+    if (!heightMapTexture) return positionLocal
+
+    // Ocean heightmap logic
+    const wCenter = modelWorldMatrix.mul(vec4(0.0, 0.0, 0.0, 1.0))
+    const uvGrid = vec2(float(0.5).add(wCenter.x.div(uScaleOcean)), float(0.5).add(wCenter.z.div(uScaleOcean)))
+    const off = float(0.01)
+    const hmC = texture(heightMapTexture, uvGrid)
+    const hm1A = texture(heightMapTexture, vec2(uvGrid.x.add(off), uvGrid.y))
+    const hm1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(off)))
+    const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
+    const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
+    const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+    const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+    const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
+    const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+    return positionLocal.add(localDisp.xyz)
+  })()
+
+const customInstancedPositionNode = (heightMapTexture, uScaleOcean, vNormalLocal) =>
+  Fn((builder) => {
+    const instanceMatrixNode = getInstanceMatrixNode(builder.object)
+
+    if (builder.hasGeometryAttribute('normal')) {
+      const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)
+      normalLocal.assign(instanceNormal)
+      vNormalLocal.assign(normalLocal)
+    }
+
+    if (!heightMapTexture) return positionLocal
+
+    // Instance origin in world space for heightmap UV sampling
+    const instanceOrigin = instanceMatrixNode.mul(vec4(0.0, 0.0, 0.0, 1.0))
+    const worldCenter = modelWorldMatrix.mul(instanceOrigin)
+    // Ocean heightmap logic
+
+    const uvGrid = vec2(float(0.5).add(worldCenter.x.div(uScaleOcean)), float(0.5).add(worldCenter.z.div(uScaleOcean)))
+    const off = float(0.01)
+    const hmC = texture(heightMapTexture, uvGrid)
+    const hm1A = texture(heightMapTexture, vec2(uvGrid.x.add(off), uvGrid.y))
+    const hm1B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.add(off)))
+    const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
+    const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
+    const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
+    const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+    const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
+    const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+    return positionLocal.add(localDisp.xyz)
+  })()
 
 // From Threejs
 export const transformNormal = /*@__PURE__*/ Fn(([normal, matrix = modelWorldMatrix]) => {
