@@ -15,7 +15,7 @@ export default class Mirador {
   #hitbox = 16
   #scale = 0.2
   #mode
-  #capacity = 500
+  #capacity = 2000
 
   constructor(scene, mode) {
     this.#mode = mode

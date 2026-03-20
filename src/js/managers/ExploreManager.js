@@ -292,7 +292,7 @@ class ExploreManager {
     // InstancedMeshes are added to scene inside BarrelRupees constructor.
     // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
     // so we must NOT pass them to this.#parent.add().
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < barrelRupees.capacity; i++) {
       barrelRupees.add(0, 0)
     }
 

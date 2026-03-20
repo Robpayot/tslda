@@ -37,7 +37,7 @@ export default class BarrelRupees {
   #iMeshRupee = null
   #iColorArray = null
   #iColorAttr = null
-  #capacity = 500
+  #capacity = 2000
 
   constructor(scene, rupee, barrel, mode) {
     this.#mode = mode

@@ -30,7 +30,7 @@ export default class Rupees {
   #baseY
   #scale
   #mode
-  #capacity = 500
+  #capacity = 2000
 
   constructor(scene, mode) {
     this.#mode = mode
