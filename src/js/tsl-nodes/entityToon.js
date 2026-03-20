@@ -6,7 +6,7 @@
  * For InstancedMesh (EXPLORE mode):
  *   1. createEntityToonMaterial({ ..., isInstanced: true })
  *   2. new InstancedMesh(geo, material, count)
- *   3. finalizeInstancedMaterial(material, mesh)  ← must be called after InstancedMesh is created
+ *   (no finalizeInstancedMaterial needed — positionNode uses builder.object at shader compile time)
  */
 import { NodeMaterial } from 'three/webgpu'
 import {
@@ -77,7 +77,7 @@ function getInstanceMatrixNode(mesh) {
  * @param {number} [options.smoothstepMax] - Toon shadow smoothstep max (barrel: 0.5, rupee: 0.8)
  * @param {number} [options.ambientMul] - Ambient multiplier (barrel: 1, rupee: 0.5)
  * @param {string} [options.name] - material.name
- * @param {boolean} [options.isInstanced] - Set true for InstancedMesh; then call finalizeInstancedMaterial
+ * @param {boolean} [options.isInstanced] - Set true for InstancedMesh; positionNode uses builder.object at compile time
  * @returns {NodeMaterial}
  */
 export function createEntityToonMaterial(options = {}) {
@@ -168,37 +168,21 @@ export function createEntityToonMaterial(options = {}) {
   if (uTintColor) material.uTintColor = uTintColor
 
   if (isInstanced) {
-    // Save refs needed by finalizeInstancedMaterial (not shader uniforms, just JS handles).
-    material._instancedSetup = { vNormalLocal, heightMapTexture, uScaleOcean }
-  }
+    // positionNode uses builder.object at shader compile time — no separate finalize call needed.
+    // In the positionNode sub-build context, normalLocal is the raw geometry normal (InstanceNode's
+    // transform is not visible there), so we manually apply the instance matrix to it here.
+    material.positionNode = Fn((builder) => {
+      const instanceMatrixNode = getInstanceMatrixNode(builder.object)
 
-  return material
-}
+      if (builder.hasGeometryAttribute('normal')) {
+        const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)
+        normalLocal.assign(instanceNormal)
+        vNormalLocal.assign(normalLocal)
+      }
 
-/**
- * Sets material.positionNode for an InstancedMesh material.
- * Must be called AFTER creating the InstancedMesh, because getInstanceMatrixNode reads
- * mesh.instanceMatrix (which is created by new InstancedMesh(...)).
- *
- * Three.js InstanceNode automatically applies the per-instance matrix to positionLocal and
- * normalLocal before positionNode runs. We must NOT re-apply it ourselves (double application
- * would make entities move at 2× speed). positionNode only adds wave Y displacement when
- * heightMapTexture is present, using the instance matrix purely to sample the correct UV center.
- *
- * @param {THREE.NodeMaterial} material - from createEntityToonMaterial({ isInstanced: true })
- * @param {THREE.InstancedMesh} mesh
- */
-export function finalizeInstancedMaterial(material, mesh) {
-  const { vNormalLocal, heightMapTexture, uScaleOcean } = material._instancedSetup
+      if (!heightMapTexture) return positionLocal
 
-  // positionLocal and normalLocal are already instance-transformed by Three.js InstanceNode.
-  // Read the instance matrix only to compute the per-instance world center for heightmap UV.
-  material.positionNode = Fn((builder) => {
-    const instanceMatrixNode = getInstanceMatrixNode(mesh)
-
-    const disp = float(0.0).toVar()
-    if (heightMapTexture) {
-      // Instance origin in world space: column 3 of the instance matrix = translation
+      // Instance origin in world space for heightmap UV sampling
       const instanceOrigin = instanceMatrixNode.mul(vec4(0.0, 0.0, 0.0, 1.0))
       const worldCenter = modelWorldMatrix.mul(instanceOrigin)
       const uvGrid = vec2(
@@ -212,26 +196,14 @@ export function finalizeInstancedMaterial(material, mesh) {
       const hm2A = texture(heightMapTexture, vec2(uvGrid.x.sub(off), uvGrid.y))
       const hm2B = texture(heightMapTexture, vec2(uvGrid.x, uvGrid.y.sub(off)))
       const avgH = hmC.r.add(hm1A.r).add(hm1B.r).add(hm2A.r).add(hm2B.r).div(5.0)
-      disp.assign(avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0)))
-    }
+      const disp = avgH.sub(0.5).mul(2.0).mul(hmC.b.mul(100.0))
+      const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
+      const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
+      return positionLocal.add(localDisp.xyz)
+    })()
+  }
 
-    // normalLocal is already instance-rotated; pass it to the fragment varying
-    if (builder.hasGeometryAttribute('normal')) {
-      const instanceNormal = transformNormal(normalLocal, instanceMatrixNode)
-      // ASSIGNS
-      normalLocal.assign(instanceNormal)
-      vNormalLocal.assign(normalLocal)
-    }
-
-    if (!heightMapTexture) {
-      return positionLocal
-    }
-
-    // Add world-Y displacement to the already-instance-transformed vertex position
-    const worldDispVec = vec4(0.0, disp, 0.0, 0.0)
-    const localDisp = modelWorldMatrixInverse.mul(worldDispVec)
-    return positionLocal.add(localDisp.xyz)
-  })()
+  return material
 }
 
 // From Threejs

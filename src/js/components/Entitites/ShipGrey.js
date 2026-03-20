@@ -2,7 +2,7 @@ import { DynamicDrawUsage, InstancedMesh, Matrix4, MathUtils, Object3D } from 't
 import OceanHeightMap from '../Ocean/OceanHeightMap'
 import { REPEAT_OCEAN, SCALE_OCEAN } from '../Ocean'
 import LoaderManager from '../../managers/LoaderManager'
-import { createEntityToonMaterial, finalizeInstancedMaterial } from '../../tsl-nodes/entityToon'
+import { createEntityToonMaterial } from '../../tsl-nodes/entityToon'
 const { degToRad, randInt } = MathUtils
 import { MODE } from '../../utils/constants'
 import gsap from 'gsap'
@@ -90,7 +90,6 @@ export default class ShipGrey {
     const iMesh = new InstancedMesh(geo, material, this.#capacity)
     iMesh.name = 'ship_grey'
     iMesh.instanceMatrix.setUsage(DynamicDrawUsage)
-    finalizeInstancedMaterial(material, iMesh)
 
     const hideDummy = new Object3D()
     hideDummy.position.set(0, -9999, 0)
