@@ -296,9 +296,11 @@ class ExploreManager {
   _createMirador() {
     const miradors = new Mirador(this.#parent, MODE.EXPLORE)
 
+    // InstancedMesh is added to scene inside the Mirador constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
     for (let i = 0; i < 6; i++) {
-      const mesh = miradors.add(0, 0)
-      this.#parent.add(mesh)
+      miradors.add(0, 0)
     }
 
     return miradors
@@ -570,7 +572,7 @@ class ExploreManager {
     }
   }
 
-  update({ time, delta }) {
+  update({ delta }) {
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
@@ -608,6 +610,9 @@ class ExploreManager {
       const object = this.#entities[i]
       object.position.x = object.initPos.x - playerX
       object.position.z = object.initPos.z + playerZ
+      // For InstancedMesh entities (e.g. miradors) the position getter points to a
+      // dummy Object3D — call _syncMatrix() to push the updated transform to the mesh
+      if (object._syncMatrix) object._syncMatrix()
 
       const dist = getDistance(0, 0, object.position.z, object.position.x)
       if (object.name === 'rupee') {
