@@ -21,7 +21,7 @@ const RUPEE_COLORS = [
 
 const BARREL_SCALE = 0.18
 const RUPEE_SCALE = 0.16
-const RUPEE_Y_OFFSET = 15
+const RUPEE_Y_OFFSET = 19
 // EXPLORE placement offset: negative = more submerged, positive = higher above water
 const BARREL_BASE_Y = -3
 
