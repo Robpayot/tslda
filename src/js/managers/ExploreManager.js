@@ -27,7 +27,7 @@ import Lightnings from '../components/Entitites/Lightnings'
 import CinematicManager from './CinematicManager'
 import gsap from 'gsap'
 
-const { clamp, degToRad, randFloat, randInt } = MathUtils
+const { clamp, randInt } = MathUtils
 
 const pointInPolygon = function (polygon, point) {
   //A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
@@ -101,8 +101,8 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
-  #entityRange = 1000
-  #entityRangeMin = 300
+  #entityRange = 20000
+  #entityRangeMin = 1300
   #rupees
   #barrels
   #barrelRupees
@@ -340,7 +340,7 @@ class ExploreManager {
 
   _initEntities() {
     for (let i = 0; i < NB_ENTITIES; i++) {
-      this._addEntity(i < Math.floor(NB_ENTITIES * 0.35))
+      this._addEntity()
     }
   }
 
@@ -371,11 +371,11 @@ class ExploreManager {
     this.#entities.splice(i, 1) // remove from entities
 
     setTimeout(() => {
-      this._addEntity(true)
+      this._addEntity()
     }, 0)
   }
 
-  _addEntity(addInFront) {
+  _addEntity() {
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
@@ -385,60 +385,28 @@ class ExploreManager {
 
     let mesh
 
-    // get random coordinate from min distance entityRange radius
+    // Random position in a full ring around the player; never inside an island footprint (same rule as miradors)
+    const maxAttempts = 32
+    let gridPos
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const angle = Math.random() * 2 * Math.PI
+      const radius = Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin
+      const x = radius * Math.cos(angle)
+      const y = radius * Math.sin(angle)
+      gridPos = new Vector2(playerX + x, -playerZ + y)
 
-    // Suppress front spawning when an island is within view distance
-    if (addInFront && this.isNearIsland) {
-      addInFront = false
-    }
-
-    let angle = Math.random() * 2 * Math.PI // Random angle in radians
-    if (addInFront) {
-      const playerDir = -ControllerManager.boat.angleDir + degToRad(-90)
-      const marginAngle = degToRad(90)
-      angle = randFloat(playerDir - marginAngle, playerDir + marginAngle)
-    }
-    let radius = Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin // Random radius within the specified range
-    // radius = this.#entityRangeMin
-    // Calculate the coordinates
-    let x = radius * Math.cos(angle)
-    let y = radius * Math.sin(angle)
-
-    let gridPos = new Vector2(playerX + x, -playerZ + y)
-
-    for (let i = 0; i < this.#islands.islands.length; i++) {
-      const { island } = this.#islands.islands[i]
-
-      if (island) {
-        const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
-
-        if (dist / this.islandDist < this.showDetailIsland) {
-          // put in behind link (not too far)
-
-          // console.log('trop près!!!!')
-          const playerDir = ControllerManager.boat.angleDir - degToRad(-90)
-          const marginAngle = degToRad(45)
-          angle = randFloat(playerDir - marginAngle, playerDir + marginAngle)
-          let radius = randFloat(700, 900) // Random radius within the specified range
-          // radius = this.#entityRangeMin
-          // Calculate the coordinates
-          x = radius * Math.cos(angle)
-          y = radius * Math.sin(angle)
-
-          gridPos = new Vector2(playerX + x, -playerZ + y)
-        }
-      }
-    }
-
-    // Miradors must not spawn inside any island's ocean footprint
-    if (type === 3) {
+      let clearOfIslands = true
       for (let i = 0; i < this.#islands.islands.length; i++) {
         const { island } = this.#islands.islands[i]
-        if (island) {
-          const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
-          if (dist < this.islandRadius) return
+        if (!island) continue
+        const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
+        if (dist < this.islandRadius) {
+          clearOfIslands = false
+          break
         }
       }
+      if (clearOfIslands) break
+      if (attempt === maxAttempts - 1) return
     }
 
     switch (type) {
