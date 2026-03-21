@@ -24,7 +24,7 @@ const { degToRad, randFloat } = MathUtils
 import EnvManager from '../../managers/EnvManager'
 
 const NB_POINTS = 1000
-const SPRITE_SCALE = 4
+const SPRITE_SCALE = 12
 
 export default class Stars {
   #mesh
@@ -46,7 +46,7 @@ export default class Stars {
   billboardToCamera() {}
 
   _createMesh() {
-    const radius = 1600
+    const radius = 4000
     const positionArray = []
     const offsetArray = []
 

@@ -51,6 +51,10 @@ export default class BarrelRupees {
     }
   }
 
+  get capacity() {
+    return this.#capacity
+  }
+
   set avail(val) {
     this.#avail = val
   }
