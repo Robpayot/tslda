@@ -108,9 +108,11 @@ export default class Mirador {
       dummy,
       instanceId,
       name: 'mirador',
-      // position is the dummy's Vector3 — mutations go straight to the dummy
       get position() {
         return dummy.position
+      },
+      get scale() {
+        return dummy.scale
       },
       initPos: { x: 0, y: INIT_Y, z: 0 },
       visible: false,
@@ -176,7 +178,7 @@ export default class Mirador {
 
   free(abstract) {
     if (this.#mode === MODE.EXPLORE) {
-      // Move the dummy far out of view — this is the Items.js hiding pattern
+      abstract.dummy.scale.set(1, 1, 1)
       abstract.dummy.position.set(0, -9999, 0)
       abstract._syncMatrix()
       this.#avail.push(abstract)

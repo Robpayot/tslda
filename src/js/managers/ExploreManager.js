@@ -358,6 +358,7 @@ class ExploreManager {
     object.visible = false
     object.collision = true
     gsap.killTweensOf(object.position)
+    if (object.scale) gsap.killTweensOf(object.scale)
     object.position.y = object.initPos.y
     switch (object.name) {
       case 'rupee':
@@ -395,11 +396,15 @@ class ExploreManager {
     let mesh
 
     // Random position in a full ring around the player; never inside an island footprint (same rule as miradors)
+    const isMirador = type === 3
     const maxAttempts = 32
     let gridPos
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const angle = Math.random() * 2 * Math.PI
-      const radius = Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin
+      // Miradors always spawn at the outer edge so they appear far away
+      const radius = isMirador
+        ? this.#entityRange
+        : Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin
       const x = radius * Math.cos(angle)
       const y = radius * Math.sin(angle)
       gridPos = new Vector2(playerX + x, -playerZ + y)
@@ -450,7 +455,10 @@ class ExploreManager {
       mesh.visible = true
       mesh.collision = false
 
-      if (mesh.name !== 'mirador') {
+      if (mesh.name === 'mirador') {
+        mesh.scale.set(0, 0, 0)
+        gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 1, ease: 'back.out(1.2)' })
+      } else {
         const targetY = mesh.initPos.y
         mesh.position.y = targetY - 40
         gsap.to(mesh.position, { y: targetY, duration: 1.8, ease: 'power2.out' })
