@@ -57,7 +57,8 @@ const pointInPolygon = function (polygon, point) {
 // 3: Mirador
 // 4: Grey ship
 
-const NB_ENTITIES = 10000
+const NB_ENTITIES = 50
+const NB_ENTITIES_INIT = 10 // visible immediately on start; the rest stagger in
 const NB_WINDS = 3
 
 const LIGHT_RINGS_DATA = [
@@ -101,8 +102,8 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
-  #entityRange = 20000
-  #entityRangeMin = 1300
+  #entityRange = 1400
+  #entityRangeMin = 300
   #rupees
   #barrels
   #barrelRupees
@@ -339,8 +340,11 @@ class ExploreManager {
   }
 
   _initEntities() {
-    for (let i = 0; i < NB_ENTITIES; i++) {
+    for (let i = 0; i < NB_ENTITIES_INIT; i++) {
       this._addEntity()
+    }
+    for (let i = NB_ENTITIES_INIT; i < NB_ENTITIES; i++) {
+      setTimeout(() => this._addEntity(), 1500 + (i - NB_ENTITIES_INIT) * 250)
     }
   }
 

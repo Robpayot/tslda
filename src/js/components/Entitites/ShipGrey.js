@@ -15,7 +15,7 @@ export default class ShipGrey {
   #hitbox = 35
   #hitboxTarget = 400
   #mode
-  #capacity = 2000
+  #capacity = 200
 
   constructor(scene, mode) {
     this.#mode = mode

@@ -22,7 +22,7 @@ export default class Barrels {
   #hitbox = 16
   #scale = 0.2
   #mode
-  #capacity = 2000
+  #capacity = 200
 
   constructor(scene, mode) {
     this.#mode = mode
