@@ -57,8 +57,8 @@ const pointInPolygon = function (polygon, point) {
 // 3: Mirador
 // 4: Grey ship
 
-const NB_ENTITIES = 50
-const NB_ENTITIES_INIT = 10 // visible immediately on start; the rest stagger in
+const NB_ENTITIES = 20
+const NB_ENTITIES_INIT = 5 // visible immediately on start; the rest stagger in
 const NB_WINDS = 3
 
 const LIGHT_RINGS_DATA = [
@@ -102,6 +102,7 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
+  #staggerTimeouts = []
   #entityRange = 1400
   #entityRangeMin = 300
   #rupees
@@ -221,6 +222,9 @@ class ExploreManager {
     }
 
     if (!fromMode) {
+      this.#staggerTimeouts.forEach(clearTimeout)
+      this.#staggerTimeouts = []
+
       GridManager.reset()
       ControllerManager.reset()
       this.#level = 0
@@ -344,7 +348,8 @@ class ExploreManager {
       this._addEntity()
     }
     for (let i = NB_ENTITIES_INIT; i < NB_ENTITIES; i++) {
-      setTimeout(() => this._addEntity(), 1500 + (i - NB_ENTITIES_INIT) * 250)
+      const id = setTimeout(() => this._addEntity(), 1500 + (i - NB_ENTITIES_INIT) * 250)
+      this.#staggerTimeouts.push(id)
     }
   }
 
@@ -611,6 +616,11 @@ class ExploreManager {
       } else if (dist > this.#entityRange + 10) {
         this._freeEntity(object, i)
       }
+    }
+
+    // Self-heal: if any entity was lost (failed island check, pool miss, etc.) add one back per frame
+    if (this.#entities.length < NB_ENTITIES) {
+      this._addEntity()
     }
 
     let stopBoat = false
