@@ -27,7 +27,7 @@ import Lightnings from '../components/Entitites/Lightnings'
 import CinematicManager from './CinematicManager'
 import gsap from 'gsap'
 
-const { clamp, degToRad, randFloat, randInt } = MathUtils
+const { clamp, randInt } = MathUtils
 
 const pointInPolygon = function (polygon, point) {
   //A point is in a polygon if a line from the point to infinity crosses the polygon an odd number of times
@@ -57,7 +57,8 @@ const pointInPolygon = function (polygon, point) {
 // 3: Mirador
 // 4: Grey ship
 
-const NB_ENTITIES = 45
+const NB_ENTITIES = 20
+const NB_ENTITIES_INIT = 5 // visible immediately on start; the rest stagger in
 const NB_WINDS = 3
 
 const LIGHT_RINGS_DATA = [
@@ -101,8 +102,9 @@ class ExploreManager {
   #stars
   // entities
   #entities = []
+  #staggerTimeouts = []
   #entityRange = 1400
-  #entityRangeMin = 1300
+  #entityRangeMin = 300
   #rupees
   #barrels
   #barrelRupees
@@ -220,6 +222,9 @@ class ExploreManager {
     }
 
     if (!fromMode) {
+      this.#staggerTimeouts.forEach(clearTimeout)
+      this.#staggerTimeouts = []
+
       GridManager.reset()
       ControllerManager.reset()
       this.#level = 0
@@ -263,9 +268,11 @@ class ExploreManager {
   _createRupees() {
     const rupees = new Rupees(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = rupees.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMesh is added to scene inside the Rupees constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < rupees.capacity; i++) {
+      rupees.add(0, 0)
     }
 
     return rupees
@@ -274,9 +281,11 @@ class ExploreManager {
   _createBarrels() {
     const barrels = new Barrels(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = barrels.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMeshes are added to scene inside the Barrels constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < barrels.capacity; i++) {
+      barrels.add(0, 0)
     }
 
     return barrels
@@ -285,9 +294,11 @@ class ExploreManager {
   _createBarrelRupees() {
     const barrelRupees = new BarrelRupees(this.#parent, this.#rupees, this.#barrels, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = barrelRupees.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMeshes are added to scene inside BarrelRupees constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < barrelRupees.capacity; i++) {
+      barrelRupees.add(0, 0)
     }
 
     return barrelRupees
@@ -296,9 +307,11 @@ class ExploreManager {
   _createMirador() {
     const miradors = new Mirador(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 6; i++) {
-      const mesh = miradors.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMesh is added to scene inside the Mirador constructor.
+    // add() builds the abstract pool — abstracts are not Three.js Object3Ds,
+    // so we must NOT pass them to this.#parent.add().
+    for (let i = 0; i < miradors.capacity; i++) {
+      miradors.add(0, 0)
     }
 
     return miradors
@@ -307,9 +320,10 @@ class ExploreManager {
   _createShipsGrey() {
     const ships = new ShipGrey(this.#parent, MODE.EXPLORE)
 
-    for (let i = 0; i < 15; i++) {
-      const mesh = ships.add(0, 0)
-      this.#parent.add(mesh)
+    // InstancedMesh is added to scene inside the ShipGrey constructor.
+    // add() builds the abstract pool — don't pass abstracts to this.#parent.add().
+    for (let i = 0; i < ships.capacity; i++) {
+      ships.add(0, 0)
     }
 
     return ships
@@ -330,8 +344,12 @@ class ExploreManager {
   }
 
   _initEntities() {
-    for (let i = 0; i < NB_ENTITIES; i++) {
-      this._addEntity(i < Math.floor(NB_ENTITIES * 0.35))
+    for (let i = 0; i < NB_ENTITIES_INIT; i++) {
+      this._addEntity()
+    }
+    for (let i = NB_ENTITIES_INIT; i < NB_ENTITIES; i++) {
+      const id = setTimeout(() => this._addEntity(), 1500 + (i - NB_ENTITIES_INIT) * 250)
+      this.#staggerTimeouts.push(id)
     }
   }
 
@@ -340,6 +358,7 @@ class ExploreManager {
     object.visible = false
     object.collision = true
     gsap.killTweensOf(object.position)
+    if (object.scale) gsap.killTweensOf(object.scale)
     object.position.y = object.initPos.y
     switch (object.name) {
       case 'rupee':
@@ -362,11 +381,11 @@ class ExploreManager {
     this.#entities.splice(i, 1) // remove from entities
 
     setTimeout(() => {
-      this._addEntity(true)
+      this._addEntity()
     }, 0)
   }
 
-  _addEntity(addInFront) {
+  _addEntity() {
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
@@ -376,60 +395,32 @@ class ExploreManager {
 
     let mesh
 
-    // get random coordinate from min distance entityRange radius
+    // Random position in a full ring around the player; never inside an island footprint (same rule as miradors)
+    const isMirador = type === 3
+    const maxAttempts = 32
+    let gridPos
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const angle = Math.random() * 2 * Math.PI
+      // Miradors always spawn at the outer edge so they appear far away
+      const radius = isMirador
+        ? this.#entityRange
+        : Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin
+      const x = radius * Math.cos(angle)
+      const y = radius * Math.sin(angle)
+      gridPos = new Vector2(playerX + x, -playerZ + y)
 
-    // Suppress front spawning when an island is within view distance
-    if (addInFront && this.isNearIsland) {
-      addInFront = false
-    }
-
-    let angle = Math.random() * 2 * Math.PI // Random angle in radians
-    if (addInFront) {
-      const playerDir = -ControllerManager.boat.angleDir + degToRad(-90)
-      const marginAngle = degToRad(90)
-      angle = randFloat(playerDir - marginAngle, playerDir + marginAngle)
-    }
-    let radius = Math.random() * (this.#entityRange - this.#entityRangeMin) + this.#entityRangeMin // Random radius within the specified range
-    // radius = this.#entityRangeMin
-    // Calculate the coordinates
-    let x = radius * Math.cos(angle)
-    let y = radius * Math.sin(angle)
-
-    let gridPos = new Vector2(playerX + x, -playerZ + y)
-
-    for (let i = 0; i < this.#islands.islands.length; i++) {
-      const { island } = this.#islands.islands[i]
-
-      if (island) {
-        const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
-
-        if (dist / this.islandDist < this.showDetailIsland) {
-          // put in behind link (not too far)
-
-          // console.log('trop près!!!!')
-          const playerDir = ControllerManager.boat.angleDir - degToRad(-90)
-          const marginAngle = degToRad(45)
-          angle = randFloat(playerDir - marginAngle, playerDir + marginAngle)
-          let radius = randFloat(700, 900) // Random radius within the specified range
-          // radius = this.#entityRangeMin
-          // Calculate the coordinates
-          x = radius * Math.cos(angle)
-          y = radius * Math.sin(angle)
-
-          gridPos = new Vector2(playerX + x, -playerZ + y)
-        }
-      }
-    }
-
-    // Miradors must not spawn inside any island's ocean footprint
-    if (type === 3) {
+      let clearOfIslands = true
       for (let i = 0; i < this.#islands.islands.length; i++) {
         const { island } = this.#islands.islands[i]
-        if (island) {
-          const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
-          if (dist < this.islandRadius) return
+        if (!island) continue
+        const dist = getDistance(gridPos.y, gridPos.x, -island.initPos.z, -island.initPos.x)
+        if (dist < this.islandRadius) {
+          clearOfIslands = false
+          break
         }
       }
+      if (clearOfIslands) break
+      if (attempt === maxAttempts - 1) return
     }
 
     switch (type) {
@@ -464,7 +455,10 @@ class ExploreManager {
       mesh.visible = true
       mesh.collision = false
 
-      if (mesh.name !== 'mirador') {
+      if (mesh.name === 'mirador') {
+        mesh.scale.set(0, 0, 0)
+        gsap.to(mesh.scale, { x: 1, y: 1, z: 1, duration: 1, ease: 'back.out(1.2)' })
+      } else {
         const targetY = mesh.initPos.y
         mesh.position.y = targetY - 40
         gsap.to(mesh.position, { y: targetY, duration: 1.8, ease: 'power2.out' })
@@ -570,7 +564,7 @@ class ExploreManager {
     }
   }
 
-  update({ time, delta }) {
+  update({ delta }) {
     const playerX = GridManager.offsetUV.x * this.#coefOffset
     const playerZ = GridManager.offsetUV.y * this.#coefOffset
 
@@ -608,6 +602,9 @@ class ExploreManager {
       const object = this.#entities[i]
       object.position.x = object.initPos.x - playerX
       object.position.z = object.initPos.z + playerZ
+      // For InstancedMesh entities (e.g. miradors) the position getter points to a
+      // dummy Object3D — call _syncMatrix() to push the updated transform to the mesh
+      if (object._syncMatrix) object._syncMatrix()
 
       const dist = getDistance(0, 0, object.position.z, object.position.x)
       if (object.name === 'rupee') {
@@ -627,6 +624,11 @@ class ExploreManager {
       } else if (dist > this.#entityRange + 10) {
         this._freeEntity(object, i)
       }
+    }
+
+    // Self-heal: if any entity was lost (failed island check, pool miss, etc.) add one back per frame
+    if (this.#entities.length < NB_ENTITIES) {
+      this._addEntity()
     }
 
     let stopBoat = false

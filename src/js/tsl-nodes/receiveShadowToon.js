@@ -145,25 +145,31 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
   const vNormalLocal = varying(vec3(0, 1, 0), 'vNormalLocal_receiveShadow')
   const skinningNode = skinnedMesh ? skinning(skinnedMesh) : null
   const vNormalSkinned = skinningNode ? varying(vec3(0, 1, 0), 'vNormalSkinned') : null
-  const positionNodeFn = skinningNode
-    ? Fn(() => {
-        const boneMatrices = skinningNode.boneMatricesNode
-        const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
-        vNormalSkinned.assign(normalize(skinNormal))
-        return positionLocal
-      })
-    : Fn(() => {
-        vNormalLocal.assign(normalLocal)
-        return positionLocal
-      })
 
-  const normalViewNode = skinningNode != null ? transformNormalToView(vNormalSkinned) : transformNormalToView(vNormalLocal)
+  const customPositionNode = Fn(() => {
+    if (!skinningNode) {
+      vNormalLocal.assign(normalLocal)
+      return positionLocal
+    }
 
-  const colorFn = Fn(() => {
+    const boneMatrices = skinningNode.boneMatricesNode
+    const { skinNormal } = skinningNode.getSkinnedNormalAndTangent(boneMatrices, normalGeometry)
+    vNormalSkinned.assign(normalize(skinNormal))
+    return positionLocal
+  })
+
+  const normalViewNode =
+    skinningNode != null ? transformNormalToView(vNormalSkinned) : transformNormalToView(vNormalLocal)
+
+  const customColorNode = Fn(() => {
     const uvBase = uv()
     const uvTransformed =
       uvTransform && uDir && uScale && uFlip
-        ? uvBase.add(vec2(uDir.x.mul(uFlip), uDir.y)).sub(0.5).div(uScale).add(0.5)
+        ? uvBase
+            .add(vec2(uDir.x.mul(uFlip), uDir.y))
+            .sub(0.5)
+            .div(uScale)
+            .add(0.5)
         : uvBase
     const tex = texture(mapTex, uvTransformed)
 
@@ -193,9 +199,9 @@ function createReceiveShadowMaterialInternal(mapTex, options) {
 
   const material = new NodeMaterial()
   material.name = 'toon'
-  material.positionNode = positionNodeFn()
+  material.positionNode = customPositionNode()
   material.normalNode = normalViewNode
-  material.colorNode = colorFn()
+  material.colorNode = customColorNode()
   material.uSunDir = uSunDir
   material.uAmbientColor = uAmbientColor
   material.uCoefShadow = uCoefShadow
