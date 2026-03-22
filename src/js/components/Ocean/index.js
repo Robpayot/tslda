@@ -530,7 +530,10 @@ export default class Ocean extends Object3D {
 
     if (this.canTrailProgress) {
       if (!(ModeManager.state === MODE.GAME_STARTED && GameManager.paused)) {
-        this.uTrailProgress.value += ControllerManager.boat.velocity * 0.016
+        // Wrap to one texture period (1/repeatTrail) to avoid float32 precision
+        // loss on Windows D3D12/Vulkan — large UV values lose sub-texel precision.
+        const repeatTrailPeriod = 1 / 190.52
+        this.uTrailProgress.value = (this.uTrailProgress.value + ControllerManager.boat.velocity * 0.016) % repeatTrailPeriod
       }
     }
 
