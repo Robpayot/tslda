@@ -300,7 +300,7 @@ export default class Ocean extends Object3D {
         .div(yCoef)
         .sub(float(1).mul(yCoef.div(vRepeatTrail).sub(0.5)))
         .add(
-          abs(pow(yCoef.add(float(trailPosYOffset).sub(0.2)), 3.0))
+          pow(abs(yCoef.add(float(trailPosYOffset).sub(0.2))), 3.0)
             .mul(this.uTrailTurn)
             .mul(float(1).div(this.uTrailOpacity.add(0.1)))
             .mul(3.0)
