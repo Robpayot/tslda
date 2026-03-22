@@ -80,10 +80,7 @@
         var isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
         if (isIE || isSafari) {
           var el = document.querySelector('[data-browser-unsupported]')
-          if (el) {
-            el.classList.add('visible')
-            el.setAttribute('aria-hidden', 'false')
-          }
+
         }
       })()
     </script>
