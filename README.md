@@ -1,13 +1,9 @@
-![Capture d'écran 2023-03-08 111345](https://user-images.githubusercontent.com/5593293/223686025-03039501-6210-4032-98e9-cc2cca840a7f.png)
 
+<img width="1728" height="885" alt="Screenshot 2026-03-22 at 10 09 52" src="https://github.com/user-attachments/assets/5f1f71a5-6efb-42a5-a870-9f87df12dbc3" />
 
-# Vite template builder to quickly generate Threejs code in the browser.
+# Wind Waker Three.js project running on WebGPU thanks to TSL!
 
-This repository will help creating 3D environment using [Threejs](https://threejs.org/examples/#webgl_animation_keyframes), a powerful WebGL library. It is powered by [Vite](https://vitejs.dev/guide/why.html) ⚡️ that quickly compiles anything you need, it is also including [Sass](https://sass-lang.com/guide), [Babel](https://babeljs.io/), [Eslint](https://eslint.org/), [Prettier](https://prettier.io/), [lil-gui](https://www.npmjs.com/package/lil-gui) and [GSAP](https://greensock.com/docs/) for animations.
-
-It is also including a LoaderManager JS file to easily load your assets: (Image, Textures, 3D models...) in one function.
-
-## [See it live](https://robpayot.github.io/vite-threejs-template/)
+## [See it live](https://wind-waker-threejs.com/)
 
 ## How to install
 
