@@ -32,27 +32,27 @@
     <meta name="twitter:image:alt" content="Wind Waker JS - Robin Payot" />
     <!-- JSON-LD structured data -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "VideoGame",
-      "name": "Wind Waker JS",
-      "description": "A fan-made, browser-playable recreation of the ocean from The Legend of Zelda: The Wind Waker, built with Three.js and WebGPU.",
-      "url": "https://wind-waker-threejs.com/",
-      "image": "https://wind-waker-threejs.com/img/social.png",
-      "author": {
-        "@type": "Person",
-        "name": "Robin Payot",
-        "email": "robpayot@gmail.com",
-        "url": "https://wind-waker-threejs.com/"
-      },
-      "genre": ["Adventure", "Fan Game"],
-      "gamePlatform": "Web Browser",
-      "applicationCategory": "Game",
-      "operatingSystem": "Any",
-      "inLanguage": "en",
-      "keywords": "zelda, wind waker, threejs, webgpu, webgl, ocean, fan game",
-      "isFamilyFriendly": true
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Wind Waker JS",
+        "description": "A fan-made, browser-playable recreation of the ocean from The Legend of Zelda: The Wind Waker, built with Three.js and WebGPU.",
+        "url": "https://wind-waker-threejs.com/",
+        "image": "https://wind-waker-threejs.com/img/social.png",
+        "author": {
+          "@type": "Person",
+          "name": "Robin Payot",
+          "email": "robpayot@gmail.com",
+          "url": "https://wind-waker-threejs.com/"
+        },
+        "genre": ["Adventure", "Fan Game"],
+        "gamePlatform": "Web Browser",
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "inLanguage": "en",
+        "keywords": "zelda, wind waker, threejs, webgpu, webgl, ocean, fan game",
+        "isFamilyFriendly": true
+      }
     </script>
     <!-- Favicon -->
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
@@ -69,13 +69,13 @@
       <div class="browser-unsupported__content">
         <p class="browser-unsupported__text text-2">
           Your browser doesn't support WebGPU, please click
-          <a href="https://wind-waker-threejs.com/" class="browser-unsupported__link">here</a>
+          <a href="https://wind-waker-js.vercel.app/" class="browser-unsupported__link">here</a>
           to run it in WebGL.
         </p>
       </div>
     </div>
     <script>
-      (function () {
+      ;(function () {
         var ua = navigator.userAgent
         var isIE = !!window.document.documentMode || /MSIE|Trident/.test(ua)
         var isSafari = /Safari/.test(ua) && !/Chrome/.test(ua)
@@ -819,12 +819,7 @@
               </g>
             </svg>
           </a>
-          <a
-            href="https://github.com/Robpayot/tslda"
-            target="_blank"
-            rel="noopener"
-            class="footer__link"
-          >
+          <a href="https://github.com/Robpayot/tslda" target="_blank" rel="noopener" class="footer__link">
             <svg
               class="footer__icon"
               id="Layer_1"
