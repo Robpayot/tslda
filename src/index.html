@@ -76,9 +76,12 @@
     </div>
     <script>
       (function () {
-        var isIE = !!window.document.documentMode || /MSIE|Trident/.test(navigator.userAgent)
-        var isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
-        if (isIE || isSafari) {
+        var ua = navigator.userAgent
+        var isIE = !!window.document.documentMode || /MSIE|Trident/.test(ua)
+        var isSafari = /Safari/.test(ua) && !/Chrome/.test(ua)
+        var isIOS = /iPhone|iPad|iPod/.test(ua)
+        var isSocialBrowser = isIOS && /FBAN|FBAV|Instagram|Twitter/.test(ua)
+        if (isIE || isSafari || isSocialBrowser) {
           var el = document.querySelector('[data-browser-unsupported]')
           if (el) {
             el.classList.add('visible')

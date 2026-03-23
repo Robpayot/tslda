@@ -22,7 +22,7 @@ class Settings {
 
     const ua = window.navigator.userAgent
     this.isSocial = false
-    if (ua.indexOf('FBAN') > -1 || ua.indexOf('FBAV') > -1 || ua.indexOf('Instagram') > -1) {
+    if (/iPhone|iPad|iPod/.test(ua) && /FBAN|FBAV|Instagram|Twitter/.test(ua)) {
       this.isSocial = true
       document.body.classList.add('is-social')
     }
